@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Comet Run</title>
-<meta name="description" content="A one-thumb space arcade game: dodge 3D meteors, chain star combos, beat bosses across 40 levels.">
+<title>Meteor Pilot</title>
+<meta name="description" content="A one-thumb space arcade game: pilot a 3D fighter through meteors, chain star combos, beat bosses across 40 levels.">
 <meta name="theme-color" content="#070a1a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Comet Run">
+<meta name="apple-mobile-web-app-title" content="Meteor Pilot">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/favicon.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -253,7 +253,7 @@ button.lk { cursor: pointer; }
 </style>
 
 <div class="top">
-  <h1>Comet <span>Run</span></h1>
+  <h1>Meteor <span>Pilot</span></h1>
   <div class="chips">
     <span class="chip fire" title="Days in a row you've played the daily course">🔥 <b id="c-streak">0</b></span>
     <span class="chip coin" title="Coins">◉ <b id="c-coins">0</b></span>
@@ -278,7 +278,7 @@ button.lk { cursor: pointer; }
 <div class="foot">Same course for everyone each day. The ghost is a bot for now, standing in for another player's recorded run. Keyboard: arrow keys or WASD, Space to play.</div>
 
 <script>
-/* Comet Run core: deterministic world, scoring rules, ghost bot, missions. No DOM. */
+/* Meteor Pilot core: deterministic world, scoring rules, ghost bot, missions. No DOM. */
 (function (root) {
   const W = 360, H = 640, SHIP_Y = 560, SHIP_R = 13, TPS = 60, MAX_T = TPS * 240;
   const MAX_LIVES = 4, MAGNET_T = TPS * 6, NOVA_R = 160, NEAR_BAND = 16;
@@ -673,6 +673,7 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 18, date: "2026-11-02", notes: ["New name: Comet Run is now Meteor Pilot", "Your coins, stars, levels and unlocks carry over"] },
     { v: 17, date: "2026-11-01", notes: ["Your spaceship is now a real 3D fighter: hull, glass cockpit, swept wings, tail fins and twin engines", "It banks into turns as you steer, with light sliding across the hull", "Blinking red and green wingtip lights and glowing engine nozzles", "Ship pictures in the Hangar show the new 3D model"] },
     { v: 16, date: "2026-11-01", notes: ["Meteors now shatter into tumbling 3D chunks when you hit them or blast them with a Nova", "Impacts land harder: a split-second freeze frame on every hit", "Skim a rock for a close call and time slows down for a heartbeat", "The screen edges glow gold as your combo climbs, brighter at every ×"] },
     { v: 15, date: "2026-10-31", notes: ["Boss fights! A giant Mothership guards every world finale: levels 10, 20, 30 and 40", "In daily and random runs it attacks at 1:45, and again, tougher, at 3:25", "Dodge its red bullet patterns and catch 5 cyan cores to blow it up. Big bonus, doubled if you take no hits", "New trophy: Boss Breaker"] },
@@ -1929,7 +1930,7 @@ button.lk { cursor: pointer; }
     const o = $("#start"), p = world.partner;
     const best = save.best[day] || 0;
     o.innerHTML = `<div class="eyebrow">${mode === "daily" ? `Daily No. ${day} · ${theme.name}` : `Random course · ${theme.name}`}</div>
-      <h2>Comet <span class="hl">Run</span></h2>
+      <h2>Meteor <span class="hl">Pilot</span></h2>
       <div class="quick"><b>Drag anywhere</b>. Your ship flies just above your finger. Dodge meteors. Chain <b style="color:var(--gold)">★</b> for a combo. Skim past rocks for close calls. Watch for showers, gates, comets and golden stars. Last to 1:45 to face the <b style="color:var(--hurt)">Mothership</b>. Beat the ghost from ${p[0]} ${p[1]}: <b>${ghost.score.toLocaleString()}</b>${best ? ` · your best <b>${best.toLocaleString()}</b>` : ""}</div>
       <div class="duo"><button class="btn pulse" id="play">Play daily</button><button class="btn lvl" id="levels-btn">Levels ★ ${LV.total(save.levels)}</button></div>
       ${rankHTML()}
@@ -2105,7 +2106,7 @@ button.lk { cursor: pointer; }
     { id: "surv60", icon: "60s", name: "Survivor", desc: "Survive 60 seconds", coins: 20, goal: 60, live: true, of: r => best("secs", r && Math.floor(r.t / TPS)) },
     { id: "surv120", icon: "2m", name: "Marathon", desc: "Survive 2 minutes", coins: 50, goal: 120, live: true, of: r => best("secs", r && Math.floor(r.t / TPS)) },
     { id: "score2k", icon: "2.5k", name: "High Flyer", desc: "Score 2,500 in one run", coins: 30, goal: 2500, live: true, of: r => best("score", r && r.score) },
-    { id: "score5k", icon: "5k", name: "Comet Legend", desc: "Score 5,000 in one run", coins: 60, goal: 5000, live: true, of: r => best("score", r && r.score) },
+    { id: "score5k", icon: "5k", name: "Meteor Legend", desc: "Score 5,000 in one run", coins: 60, goal: 5000, live: true, of: r => best("score", r && r.score) },
     { id: "boss", icon: "◆", name: "Boss Breaker", desc: "Destroy a Mothership", coins: 50, goal: 1, live: true, of: r => best("bosses", r && r.bossesDown) },
     { id: "ghost", icon: "◐", name: "Ghost Buster", desc: "Beat the ghost on the daily course", coins: 25, goal: 1, of: () => save.rec.ghostWins },
     { id: "flawless", icon: "★★★", name: "Flawless", desc: "Earn 3 stars on a level", coins: 30, goal: 1, of: () => Object.values(save.levels).some(v => v >= 3) ? 1 : 0 },
@@ -2265,7 +2266,7 @@ button.lk { cursor: pointer; }
     trophyEnd(me, mode === "daily" && !me.quit && diff >= 0);
     persist(); paintChips();
     const missionBonus = MISSIONS.filter(m => runMissions.has(m.key)).reduce((a, m) => a + m.reward, 0);
-    const text = `Comet Run ${mode === "daily" ? "No. " + day : "(random)"} ☄️\n${me.score.toLocaleString()} pts · ${CR.fmtTime(secs)} · ★${me.stars} · ×${me.maxMult}\n${diff >= 0 ? "Beat" : "Lost to"} the ghost from ${p[0]} by ${Math.abs(diff).toLocaleString()}`;
+    const text = `Meteor Pilot ${mode === "daily" ? "No. " + day : "(random)"} ☄️\n${me.score.toLocaleString()} pts · ${CR.fmtTime(secs)} · ★${me.stars} · ×${me.maxMult}\n${diff >= 0 ? "Beat" : "Lost to"} the ghost from ${p[0]} by ${Math.abs(diff).toLocaleString()}`;
     const o = $("#over");
     o.innerHTML = `<div class="eyebrow ${newBest ? "hot" : ""}">${newBest ? "New best today" : mode === "daily" ? `Best today ${(save.best[day] || 0).toLocaleString()}` : "Run over"}</div>
       <div class="big">${me.score.toLocaleString()}</div>

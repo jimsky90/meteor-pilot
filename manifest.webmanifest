@@ -1,7 +1,7 @@
 {
-  "name": "Comet Run",
-  "short_name": "Comet Run",
-  "description": "A one-thumb space arcade game: dodge 3D meteors, chain star combos, beat bosses across 40 levels.",
+  "name": "Meteor Pilot",
+  "short_name": "Meteor Pilot",
+  "description": "A one-thumb space arcade game: pilot a 3D fighter through meteors, chain star combos, beat bosses across 40 levels.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

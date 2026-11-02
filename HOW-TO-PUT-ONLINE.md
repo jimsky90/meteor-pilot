@@ -1,6 +1,6 @@
-# Comet Run: installable app
+# Meteor Pilot: installable app
 
-This folder is the complete game as an installable app. Players open a web address, tap **Install** (or "Add to Home Screen"), and Comet Run gets its own icon. It opens full screen and works offline.
+This folder is the complete game as an installable app. Players open a web address, tap **Install** (or "Add to Home Screen"), and Meteor Pilot gets its own icon. It opens full screen and works offline.
 
 It needs its own web address. The claude.ai link can't be installed, because it runs inside Claude's page.
 
@@ -34,7 +34,7 @@ All three give you HTTPS. Installing only works on an HTTPS address.
 ## Updating the game later
 
 1. Replace `index.html` with the new version.
-2. In `sw.js`, change `VERSION` (for example `comet-run-v17` to `comet-run-v18`).
+2. In `sw.js`, change `VERSION` (for example `meteor-pilot-v18` to `meteor-pilot-v19`).
 3. Upload the folder again.
 
 Players get the update the next time they open the app while online.
