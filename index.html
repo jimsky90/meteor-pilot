@@ -21,9 +21,11 @@
 body { margin: 0; }
 img { max-width: 100%; }
 html, body { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+.chip.install { font: inherit; cursor: pointer; color: #070a1a; background: #4fe0cf; border-color: #4fe0cf; font-weight: 700; }
 </style>
 </head>
 <body>
+<!-- GAME:START -->
 <style>
 /* Layout: one portrait arcade screen, centered; HUD drawn on canvas, menus as overlays on the screen. Single deliberate deep-space theme. */
 :root {
@@ -247,7 +249,6 @@ button.lk { cursor: pointer; }
 .checkout p { margin: 0; font-size: .84rem; color: var(--muted); }
 .fine { font-size: .74rem; color: var(--muted); margin: 0; }
 .bdg { font-size: .62rem; padding: 1px 6px; border-radius: 99px; background: rgba(255,204,77,.18); color: var(--gold); letter-spacing: .06em; }
-.chip.install { font: inherit; cursor: pointer; color: var(--space); background: var(--tide); border-color: var(--tide); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 
@@ -256,7 +257,6 @@ button.lk { cursor: pointer; }
   <div class="chips">
     <span class="chip fire" title="Days in a row you've played the daily course">🔥 <b id="c-streak">0</b></span>
     <span class="chip coin" title="Coins">◉ <b id="c-coins">0</b></span>
-    <button class="chip install" id="install" hidden>Install</button>
     <button class="chip mute" id="mute" aria-label="Sound on">♪</button>
   </div>
 </div>
@@ -2695,6 +2695,7 @@ button.lk { cursor: pointer; }
   requestAnimationFrame(t => { last = t; frame(t); });
 })();
 </script>
+<!-- GAME:END -->
 
 <script>
 /* App shell: offline support and the install button. Separate from the game code. */
@@ -2703,7 +2704,9 @@ button.lk { cursor: pointer; }
     addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
   }
   let deferred = null;
-  const btn = document.getElementById("install");
+  const btn = document.createElement("button");
+  btn.className = "chip install"; btn.id = "install"; btn.hidden = true; btn.textContent = "Install";
+  const chips = document.querySelector(".chips"); if (chips) chips.insertBefore(btn, chips.firstChild);
   addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; btn.hidden = false; });
   btn.addEventListener("click", async () => {
     if (!deferred) return;
