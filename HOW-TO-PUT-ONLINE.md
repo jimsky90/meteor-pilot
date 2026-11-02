@@ -12,7 +12,7 @@ Pick one:
 1. Go to app.netlify.com/drop.
 2. Drag this whole folder onto the page.
 3. Create a free account when asked, so the site stays online.
-4. You get an address like `comet-run-123.netlify.app`. You can rename it in Site settings.
+4. You get an address like `meteor-pilot-123.netlify.app`. You can rename it in Site settings.
 
 **Cloudflare Pages**
 1. Sign up free at dash.cloudflare.com.
