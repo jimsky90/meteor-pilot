@@ -60,6 +60,7 @@ h1 span { color: var(--ember); }
 .chip.coin b { color: var(--gold); }
 .chip.fire b { color: var(--ember); }
 .mute { font: inherit; color: var(--ink); cursor: pointer; }
+.mute.off { color: var(--muted); text-decoration: line-through; opacity: .6; }
 .stage { position: relative; flex: none; max-width: 100%; border-radius: 18px; overflow: hidden; border: 1px solid var(--rule);
   touch-action: none; user-select: none; -webkit-user-select: none; }
 canvas { display: block; width: 100%; height: 100%; }
@@ -248,7 +249,22 @@ button.lk { cursor: pointer; }
 .checkout { border: 1px solid var(--gold); border-radius: 14px; padding: 12px; display: grid; gap: 6px; background: rgba(12,17,42,.92); }
 .checkout p { margin: 0; font-size: .84rem; color: var(--muted); }
 .fine { font-size: .74rem; color: var(--muted); margin: 0; }
+.shop .tabs { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.lk .two { display: flex; gap: 4px; width: 100%; }
+.lk .two .buy { flex: 1; text-align: center; padding-inline: 4px; }
+.lk .two .buy.pv { flex: none; width: 34px; }
+.lk.pvon { outline: 1px dashed var(--rc); outline-offset: 2px; }
 .bdg { font-size: .62rem; padding: 1px 6px; border-radius: 99px; background: rgba(255,204,77,.18); color: var(--gold); letter-spacing: .06em; }
+/* settings */
+.settings { justify-content: flex-start; align-items: stretch; text-align: left; gap: 10px; }
+.srow { display: grid; gap: 6px; padding: 10px; border-radius: 12px; border: 1px solid var(--rule); background: rgba(12,17,42,.75); }
+.srow h3 { margin: 0; font-family: var(--f-display); font-size: .95rem; letter-spacing: .03em; }
+.srow p { margin: 0; font-size: .74rem; color: var(--muted); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 4px; background: rgba(39,48,97,.35); padding: 3px; border-radius: 10px; }
+.seg button { font-family: var(--f-display); font-weight: 700; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; padding: 8px 2px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.seg button.on { background: var(--gold); color: var(--space); }
+.seg button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.gapdemo { display: block; width: 100%; height: 74px; border-radius: 10px; border: 1px solid var(--rule); background: rgba(7,10,26,.7); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 
@@ -257,7 +273,8 @@ button.lk { cursor: pointer; }
   <div class="chips">
     <span class="chip fire" title="Days in a row you've played the daily course">🔥 <b id="c-streak">0</b></span>
     <span class="chip coin" title="Coins">◉ <b id="c-coins">0</b></span>
-    <button class="chip mute" id="mute" aria-label="Sound on">♪</button>
+    <button class="chip mute" id="music" aria-label="Music on" title="Music">♫</button>
+    <button class="chip mute" id="mute" aria-label="Sound effects on" title="Sound effects">SFX</button>
   </div>
 </div>
 
@@ -271,6 +288,7 @@ button.lk { cursor: pointer; }
   <div class="overlay" id="paused" hidden></div>
   <div class="overlay levels" id="levels" hidden></div>
   <div class="overlay trophies" id="trophies" hidden></div>
+  <div class="overlay settings" id="settings" hidden></div>
   <button class="pausebtn" id="pausebtn" aria-label="Pause" hidden>❚❚</button>
   <div class="toast" id="toast" hidden></div>
 </div>
@@ -340,7 +358,58 @@ button.lk { cursor: pointer; }
       next = t + Math.max(10, Math.round(40 - secs * 0.55 + rng() * 16));
     }
     const world = { seed: String(seed), items, events, partner: PARTNERS[Math.floor(rng() * PARTNERS.length)] };
-    return setBosses(world, DAILY_BOSSES);
+    setBosses(world, DAILY_BOSSES);
+    return setWells(world, DAILY_WELLS);
+  }
+
+  /* ---------- Black holes (v22): a gravity well opens between events. It bends the paths of everything falling
+     past it, swallows what drifts into its core, tugs on the ship, and its core hurts. Own rng, so the course is unchanged. ---------- */
+  const WELL_LEN = TPS * 7, WELL_RAMP = 60, WELL_CORE = 20, WELL_PULL = 3.4, WELL_RANGE = 300, WELL_BEND = 0.55, WELL_SIG = 150;
+  const DAILY_WELLS = [27, 77, 152, 229].map(s => TPS * s);
+  /** Replace a world's black holes. starts: ticks. Wells that overlap a boss are dropped. */
+  function setWells(world, starts) {
+    const rng = mulberry32(hashStr(world.seed + ":well"));
+    world.wells = (starts || []).map((t, i) => ({ id: i, t, dur: WELL_LEN, x: 110 + rng() * (W - 220), y: 330 + rng() * 80, sway: 40 + rng() * 30, ph: rng() * 6.283 }));
+    return refreshWells(world);
+  }
+  function refreshWells(world) {
+    world.wellsLive = (world.wells || []).filter(w => !eventHidden(world, w));
+    world.swallow = new Map(); world.swallowAt = new Map();
+    for (const it of world.items) {
+      if (hiddenAt(world, it.t)) continue;
+      for (const w of world.wellsLive) {
+        const tc = Math.ceil(it.t + (w.y + it.r) / it.vy);
+        if (tc < w.t || tc >= w.t + w.dur) continue;
+        const ws = wellState(w, tc), b = itemPos(it, tc), bx = b.x + (ws.x - b.x) * WELL_BEND * ws.s;
+        if (ws.s > 0.25 && Math.abs(bx - ws.x) < WELL_CORE + it.r * 0.5) {
+          world.swallow.set(it.id, tc);
+          if (!world.swallowAt.has(tc)) world.swallowAt.set(tc, []);
+          world.swallowAt.get(tc).push(it.id);
+          break;
+        }
+      }
+    }
+    return world;
+  }
+  function wellAt(world, t) {
+    if (world.wellsLive) for (const w of world.wellsLive) if (t >= w.t && t < w.t + w.dur) return w;
+    return null;
+  }
+  /** Where a well is at tick t and how open it is (s: 0..1). */
+  function wellState(w, t) {
+    const k = t - w.t, s = Math.max(0, Math.min(1, k / WELL_RAMP, (w.dur - k) / WELL_RAMP));
+    return { x: Math.max(70, Math.min(W - 70, w.x + Math.sin(k * 0.012 + w.ph) * w.sway)), y: w.y, s };
+  }
+  function bendX(x, y, ws) {
+    if (!ws) return x;
+    const dy = y - ws.y;
+    return x + (ws.x - x) * WELL_BEND * ws.s * Math.exp(-(dy * dy) / (WELL_SIG * WELL_SIG));
+  }
+  /** Item position including any black-hole bending. */
+  function posAt(world, it, t) {
+    const p = itemPos(it, t), w = wellAt(world, t);
+    if (w) p.x = bendX(p.x, p.y, wellState(w, t));
+    return p;
   }
 
   /* ---------- Mothership boss: slow, readable bullet patterns fixed by the seed (own rng, so the course itself is unchanged).
@@ -394,6 +463,7 @@ button.lk { cursor: pointer; }
   function setBosses(world, specs) {
     world.bosses = (specs || []).map((s, i) => buildBoss(world.seed, i, s));
     world.hide = world.bosses.map(b => [b.t0 - BOSS_WARN, b.t0 + b.dur]);
+    if (world.wells) refreshWells(world);
     return world;
   }
   function hiddenAt(world, t) {
@@ -439,11 +509,13 @@ button.lk { cursor: pointer; }
     return { x, y: -it.r + it.vy * (t - it.t) };
   }
   function active(world, t) {
-    const out = [];
+    const out = [], wl = wellAt(world, t), ws = wl && wellState(wl, t), sw = world.swallow;
     for (const it of world.items) {
       if (it.t > t) break;
       if (world.hide && hiddenAt(world, it.t)) continue;
+      if (sw && sw.size) { const k = sw.get(it.id); if (k != null && t >= k) continue; }
       const p = itemPos(it, t);
+      if (ws) p.x = bendX(p.x, p.y, ws);
       if (p.y - it.r > H) continue;
       out.push({ it, x: p.x, y: p.y });
     }
@@ -455,7 +527,7 @@ button.lk { cursor: pointer; }
     return { cfg, keep: cfg.keep, x: W / 2, y: SHIP_Y, lives: cfg.lives, inv: 0, stars: 0, got: new Set(), alive: true, t: 0, score: 0, bonus: 0,
       combo: 0, mult: 1, maxMult: 1, magnet: 0, smashed: new Set(), close: new Set(), hitIds: new Set(),
       nearDone: new Set(), near: 0, powers: 0, gates: 0, gateHit: new Set(), gateDone: new Set(), golds: 0,
-      bossHp: [], bossKill: [], bossHurt: [], cores: new Set(), coreCount: 0, bossesDown: 0 };
+      bossHp: [], bossKill: [], bossHurt: [], cores: new Set(), coreCount: 0, bossesDown: 0, wells: 0 };
   }
 
   /* One fixed step for a ship heading to targetX. Returns events for the screen to show. */
@@ -471,6 +543,12 @@ button.lk { cursor: pointer; }
     r.t++;
     if (r.inv > 0) r.inv--;
     if (r.magnet > 0) r.magnet--;
+    const well = wellAt(world, r.t), wst = well && wellState(well, r.t);
+    if (wst) {
+      const wx = wst.x - r.x, wy = wst.y - r.y, wd = Math.hypot(wx, wy) || 1, f = WELL_PULL * wst.s * Math.max(0, 1 - wd / WELL_RANGE) ** 2;
+      r.x = Math.max(SHIP_R, Math.min(W - SHIP_R, r.x + wx / wd * f));
+      r.y = Math.max(MIN_Y, Math.min(MAX_Y, r.y + wy / wd * f));
+    }
     const list = active(world, r.t);
     for (const a of list) {
       const it = a.it, d = Math.hypot(a.x - r.x, a.y - r.y);
@@ -551,6 +629,15 @@ button.lk { cursor: pointer; }
         if (r.t === b.t0 + b.dur && r.bossKill[i] == null) { const pts = 100 + 50 * b.lvl; r.bonus += pts; ev.push({ type: "bossGone", pts, i }); }
       });
     }
+    if (r.alive && wst && wst.s > 0.25 && r.inv === 0 && Math.hypot(wst.x - r.x, wst.y - r.y) < WELL_CORE + r.cfg.hit * 0.5) {
+      r.hitIds.add("well" + r.t); r.lives--; r.inv = 75;
+      if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
+      ev.push({ type: "hit", x: wst.x, y: wst.y, well: true });
+      if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); }
+    }
+    if (r.alive && world.wellsLive) for (const w of world.wellsLive) {
+      if (r.t === w.t + w.dur) { r.bonus += 100; r.wells++; ev.push({ type: "survived", event: "well" }); }
+    }
     if (world.events) for (const e of world.events) {
       if (r.t === e.t + e.dur && !eventHidden(world, e)) { r.bonus += 100; ev.push({ type: "survived", event: e.type }); }
     }
@@ -570,7 +657,7 @@ button.lk { cursor: pointer; }
         const dt = (SHIP_Y - a.y) / a.it.vy;
         if (dt < -4 || dt > 34) continue;
         const reach = Math.abs(cx - g.x) / 3.0;
-        const gap = Math.abs(itemPos(a.it, g.t + Math.max(0, dt)).x - cx);
+        const gap = Math.abs(posAt(world, a.it, g.t + Math.max(0, dt)).x - cx);
         if (a.it.kind !== "rock") { if (gap < 26 && reach <= dt + 2 && !g.got.has(a.it.id)) cost -= a.it.kind === "power" ? 5 : 3; }
         else if (!g.smashed.has(a.it.id) && gap < a.it.r + SHIP_R + 10) cost += 10 + (reach > dt ? 20 : 0);
       }
@@ -602,7 +689,7 @@ button.lk { cursor: pointer; }
         aim = ghostAim(world, g, rng);
         if (rng() < 0.02 + g.t / TPS * 0.0004) lapse = 22 + Math.floor(rng() * 20);
       }
-      step(world, g, aim, 3.0);
+      step(world, g, aim, 3.0, SHIP_Y);
       path.push(g.x); scores.push(g.score);
     }
     return { path, scores, score: g.score, t: g.t, stars: g.stars };
@@ -661,7 +748,8 @@ button.lk { cursor: pointer; }
 
   root.CR = { MIN_Y, MAX_Y, W, H, SHIP_Y, SHIP_R, TPS, MAX_LIVES, MAGNET_T, NOVA_R, dayNumber, makeWorld, active, newRunner, step,
     recordGhost, missions, SKINS, fmtTime, loadoutCfg, replay, MAX_T,
-    bossPos, bossActive, setBosses, hiddenAt, eventHidden, BOSS_WARN, BOSS_HP };
+    bossPos, bossActive, setBosses, hiddenAt, eventHidden, BOSS_WARN, BOSS_HP,
+    setWells, wellAt, wellState, WELL_CORE, WELL_RANGE };
 })(typeof module !== "undefined" ? module.exports : window);
 
 </script>
@@ -673,6 +761,11 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 23, date: "2026-11-05", notes: ["New in the Shop: Booms! Pick how your ship explodes when it goes down", "Six effects: Pixel Pop, Fireworks, Shockwave, Glitch Out, Singularity and Prism Nova", "Tap ▶ to watch any effect before you buy. Fixed coin prices, looks only", "Your explosions show up in the Locker too"] },
+    { v: 22, date: "2026-11-04", notes: ["New event: Black Holes! A swirling gravity well opens mid-run", "It bends the paths of meteors and stars, swallows anything that drifts into it, and tugs on your ship", "Don't touch the core. Ride it out for +100", "New trophy: Event Horizon. Black holes appear in daily runs and from the Red Circuit world on"] },
+    { v: 21, date: "2026-11-03", notes: ["New Settings screen: open it from the start screen or the pause menu", "Choose how far above your finger the ship flies, and nudge it left or right for your thumb", "Vibration on/off, calmer screen effects (less shake and flashing), and a Low graphics mode for older phones", "Music and sound switches live there too"] },
+    { v: 20, date: "2026-11-03", notes: ["Race your best! A violet ghost replays your best daily run, move for move", "The top bar shows live whether you're ahead of or behind your best", "Beat it and your new run becomes the ghost to chase", "Switch it on or off from the start screen"] },
+    { v: 19, date: "2026-11-02", notes: ["Music! An original soundtrack that plays as you fly", "Each world has its own sound: synthwave, industrial, crystal and dark void", "The beat speeds up every sector, and an alarm layer kicks in when the Mothership attacks", "Separate Music and SFX switches at the top and on the pause screen"] },
     { v: 18, date: "2026-11-02", notes: ["New name: Comet Run is now Meteor Pilot", "Your coins, stars, levels and unlocks carry over"] },
     { v: 17, date: "2026-11-01", notes: ["Your spaceship is now a real 3D fighter: hull, glass cockpit, swept wings, tail fins and twin engines", "It banks into turns as you steer, with light sliding across the hull", "Blinking red and green wingtip lights and glowing engine nozzles", "Ship pictures in the Hangar show the new 3D model"] },
     { v: 16, date: "2026-11-01", notes: ["Meteors now shatter into tumbling 3D chunks when you hit them or blast them with a Nova", "Impacts land harder: a split-second freeze frame on every hit", "Skim a rock for a close call and time slows down for a heartbeat", "The screen edges glow gold as your combo climbs, brighter at every ×"] },
@@ -717,10 +810,11 @@ button.lk { cursor: pointer; }
     function pickSeed(n, type, durT) {
       for (let k = 0; k < 200; k++) {
         const seed = `lvl-${n}-${k}`, world = CR.makeWorld(seed);
+        if (n <= 10) CR.setWells(world, []);
         if (type === "gates" && !(world.events[0].type === "gates")) continue;
-        if (type === "golden" && !world.items.some(it => it.gold && it.t + 200 < durT)) continue;
+        if (type === "golden" && !world.items.some(it => it.gold && it.t + 200 < durT && !world.swallow.has(it.id))) continue;
         if (type === "stars") {
-          const avail = world.items.filter(it => it.kind === "star" && it.t + 180 < durT).length;
+          const avail = world.items.filter(it => it.kind === "star" && it.t + 180 < durT && !world.swallow.has(it.id)).length;
           if (avail < 8 + 2 * Math.floor((n - 1) / 10) || avail > 22) continue;
         }
         return { seed, world };
@@ -739,8 +833,10 @@ button.lk { cursor: pointer; }
       const { seed, world } = pickSeed(n, type, durT);
       /* Finales end with a Mothership boss; tougher in later worlds. */
       if (type === "finale") CR.setBosses(world, [{ t0: durT - 22 * TPS, dur: 20 * TPS, lvl: w }]);
+      /* Black holes start in the second world; Neon Belt stays a gentle introduction. */
+      if (w === 0) CR.setWells(world, []);
       const ghost = CR.recordGhost(world);
-      const starsAvail = world.items.filter(it => it.kind === "star" && it.t + 180 < durT && !CR.hiddenAt(world, it.t)).length;
+      const starsAvail = world.items.filter(it => it.kind === "star" && it.t + 180 < durT && !CR.hiddenAt(world, it.t) && !world.swallow.has(it.id)).length;
       const baseScore = Math.floor(durT / 6) + Math.round(starsAvail * 25 * 0.55);
       let goal = 0;
       if (type === "stars") goal = Math.max(3, Math.min(starsAvail - 2, Math.round(starsAvail * (0.4 + w * 0.05))));
@@ -1025,12 +1121,13 @@ button.lk { cursor: pointer; }
       }
     };
 
-    function drawBackground(ctx, t, th) {
-      const bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, th.sky); bg.addColorStop(1, "#04050d");
+    const skyCache = new Map();
+    function drawBackground(ctx, t, th, lite) {
+      let bg = skyCache.get(th.sky);
+      if (!bg) { bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, th.sky); bg.addColorStop(1, "#04050d"); skyCache.set(th.sky, bg); }
       ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
       SCENES[th.scene](ctx, t, th, 1);
-      SCENES[th.over](ctx, t, th, 0.55);
+      if (!lite) SCENES[th.over](ctx, t, th, 0.55);
     }
 
     /* Occasional glitch slices for the Quantum Void (copies a strip of the finished frame sideways). */
@@ -1394,8 +1491,12 @@ button.lk { cursor: pointer; }
   // ---------- save data ----------
   let save = (() => { try { return JSON.parse(localStorage.getItem("cometrun:v2")) || {}; } catch (e) { return {}; } })();
   save = Object.assign({ coins: 0, owned: ["comet"], skin: "comet", best: {}, missions: {}, lastDay: 0, streak: 0, muted: false, runs: 0, trails: ["none"], trail: "none" }, save);
+  if (typeof save.musicOff !== "boolean") save.musicOff = !!save.muted; /* players who muted before keep silence */
   if (typeof save.tutDone !== "boolean") save.tutDone = save.runs > 0; /* players who already have runs skip the tips */
   save.levels = save.levels || {};
+  /* Settings (v21). Display + input only: nothing here changes the rules or scores. */
+  save.set = Object.assign({ haptics: true, motion: "auto", gap: "normal", hand: "center", gfx: "high" }, save.set && typeof save.set === "object" ? save.set : {});
+  const lowGfx = () => save.set.gfx === "low";
   save.xp = save.xp || 0; save.pilot = save.pilot || 1;
   const SHIP_RANK = { comet: 1, ember: 2, aurora: 4, nebula: 7, void: 10 };
   const TRAIL_RANK = { none: 1, sparks: 3, rainbow: 5, plasma: 8, stardust: 12 };
@@ -1421,12 +1522,13 @@ button.lk { cursor: pointer; }
   const skin = () => SKINS.find(s => s.id === save.skin) || SKINS[0];
 
   let world, ghost, me, mode, state = "menu", targetX = W / 2, targetY = SHIP_Y, keys = { l: false, r: false, u: false, d: false }, finger = null;
-  let particles = [], floaters = [], rings = [], shake = 0, flash = null, acc = 0, last = 0, bgT = 0;
+  let booms = [], particles = [], floaters = [], rings = [], shake = 0, flash = null, acc = 0, last = 0, bgT = 0;
   let inputs = [], lastIn = null, trail = [], hTab = "ships", ghostPassed, bestBefore, bestToasted, runMissions, sector, magnetSpin = 0;
   const rocks = new Map();
   /* ---------- JUICE (display + pacing only; the simulation still runs the exact same ticks) ---------- */
   let chunks = [], shattered = new Set(), hitStopMs = 0, slowMs = 0, slowCool = 0, nearRing = null, comboGlow = 0;
-  const SLOW_LEN = 320, REDUCED = (() => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } })();
+  const SLOW_LEN = 320, REDUCED_OS = (() => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } })();
+  const calm = () => save.set.motion === "on" || (save.set.motion === "auto" && REDUCED_OS);
   const hitStop = ms => { hitStopMs = Math.max(hitStopMs, ms); };
   /* Find the rock under an impact point at tick t. */
   function rockAt(x, y, t, skipSmashed) {
@@ -1473,8 +1575,8 @@ button.lk { cursor: pointer; }
   /* Gold glow on the side and bottom edges that grows with your combo multiplier. */
   function drawComboGlow(t) {
     if (comboGlow < 0.02) return;
-    const pulse = REDUCED ? 1 : 0.8 + 0.2 * Math.sin(t * 0.18), k = comboGlow * pulse, wd = 10 + 22 * comboGlow;
-    const col = me.mult >= 5 && !REDUCED && Math.floor(t / 12) % 2 ? "255,150,70" : "255,204,77";
+    const pulse = calm() ? 1 : 0.8 + 0.2 * Math.sin(t * 0.18), k = comboGlow * pulse, wd = 10 + 22 * comboGlow;
+    const col = me.mult >= 5 && !calm() && Math.floor(t / 12) % 2 ? "255,150,70" : "255,204,77";
     const edge = (x0, y0, x1, y1, rx, ry, rw, rh) => {
       const g = ctx.createLinearGradient(x0, y0, x1, y1);
       g.addColorStop(0, `rgba(${col},${.42 * k})`); g.addColorStop(1, `rgba(${col},0)`);
@@ -1524,9 +1626,146 @@ button.lk { cursor: pointer; }
     alarm: () => [0, 0.18].forEach(d => tone(740, 0.12, "square", 0.05, -200, d)),
     siren: () => [0, 0.35, 0.7].forEach(d => { tone(330, 0.3, "sawtooth", 0.06, 220, d); }),
     core: () => { tone(700, 0.12, "triangle", 0.1, 500); tone(1400, 0.1, "sine", 0.05, 0, 0.05); },
+    gulp: () => { tone(220, 0.25, "sine", 0.07, -170); },
+    rumble: () => { tone(70, 1.4, "sawtooth", 0.09, -25); tone(110, 1.1, "sine", 0.06, -60, 0.1); },
     boom: () => { tone(140, 0.7, "sawtooth", 0.16, -100); tone(70, 0.9, "square", 0.08, -30); [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.18, "triangle", 0.07, 0, 0.35 + i * 0.07)); }
   };
-  $("#mute").onclick = () => { save.muted = !save.muted; persist(); paintChips(); audio(); sfx.tap(); };
+
+  /* ---------- MUSIC (procedural soundtrack; app-side only, never touches window.CR) ----------
+     A tiny step sequencer. Each world has its own style; the tempo climbs every sector, a boss adds an alarm layer,
+     and close-call slow motion muffles the mix. Patterns are strings: x = hit, digits = notes, . = rest. */
+  const MUSIC = (() => {
+    const MINOR = [0, 2, 3, 5, 7, 8, 10];
+    const STY = {
+      menu: { bpm: 76, root: 57, scale: MINOR, prog: [0, 5, 3, 6], kick: "", snare: "", hat: "",
+        bass: "0...............", bassT: "triangle", bassOct: -12, bassLen: 14, bassVol: .12, bassLp: 900,
+        arp: "0...2...1...3...", arpT: "sine", arpOct: 12, arpVol: .05, arpLen: 3, arpLp: 4000, pad: "triangle", padVol: .035, padLp: 1400 },
+      0: { name: "synthwave", bpm: 100, root: 45, scale: MINOR, prog: [0, 5, 2, 6],
+        kick: "x...x...x...x...", snare: "....x.......x...", hat: "..x...x...x...x.",
+        bass: "0.0.o.0.0.0.o.5.", bassT: "sawtooth", bassOct: 0, bassLen: 1.6, bassVol: .11, bassLp: 700,
+        arp: "0123210301232103", arpT: "square", arpOct: 24, arpVol: .028, arpLen: .9, arpLp: 2600, pad: "sawtooth", padVol: .022, padLp: 1100 },
+      1: { name: "industrial", bpm: 114, root: 38, scale: [0, 1, 3, 5, 7, 8, 10], prog: [0, 1, 0, 5],
+        kick: "x...x...x.x.x...", snare: "....x.......x..x", hat: "xxxxxxxxxxxxxxxx",
+        bass: "00o000o00o0000o0", bassT: "square", bassOct: 0, bassLen: .8, bassVol: .085, bassLp: 520,
+        arp: "0..0..2...0..1..", arpT: "sawtooth", arpOct: 12, arpVol: .045, arpLen: 1.2, arpLp: 1800, pad: null },
+      2: { name: "crystal", bpm: 92, root: 52, scale: [0, 2, 4, 6, 7, 9, 11], prog: [0, 4, 5, 1],
+        kick: "x.........x.....", snare: "........x.......", hat: "....x.......x...",
+        bass: "0.......5.......", bassT: "triangle", bassOct: -12, bassLen: 7, bassVol: .13, bassLp: 1200,
+        arp: "0213021302130213", arpT: "triangle", arpOct: 24, arpVol: .05, arpLen: 1.4, arpLp: 6000, pad: "sine", padVol: .05, padLp: 3000 },
+      3: { name: "void", bpm: 104, root: 37, scale: [0, 2, 3, 5, 7, 8, 11], prog: [0, 5, 3, 4], glitch: true,
+        kick: "x.....x.x.....x.", snare: "....x.......x...", hat: "x.xxx.x.xx.x.xxx",
+        bass: "0..0..o.0..0..5.", bassT: "sawtooth", bassOct: 0, bassLen: 2, bassVol: .09, bassLp: 600, bassDet: 14,
+        arp: "3...1..2....0...", arpT: "square", arpOct: 24, arpVol: .03, arpLen: 1, arpLp: 2200, pad: "sawtooth", padVol: .02, padLp: 800 }
+    };
+    const want = { on: false, style: "menu", boost: 0, boss: false, dim: false, paused: false };
+    let bus = null, filt = null, noise = null, cur = "menu", step = 0, bar = 0, nextTime = 0;
+    const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+    const note = (S, d) => S.root + S.scale[((d % 7) + 7) % 7] + 12 * Math.floor(d / 7);
+    function init() {
+      if (bus || !ac) return !!bus;
+      try {
+        bus = ac.createGain(); bus.gain.value = 0;
+        filt = ac.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = 16000;
+        const comp = ac.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4;
+        bus.connect(filt).connect(comp).connect(ac.destination);
+        noise = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate);
+        const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      } catch (e) { bus = null; }
+      return !!bus;
+    }
+    function env(t, dur, vol, att, lp) {
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + (att || 0.005)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      if (lp) { const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lp; g.connect(f).connect(bus); } else g.connect(bus);
+      return g;
+    }
+    function voice(type, f, t, dur, vol, o) {
+      o = o || {};
+      const g = env(t, dur, vol, o.att, o.lp);
+      for (const det of o.det ? [-o.det, o.det] : [0]) {
+        const v = ac.createOscillator(); v.type = type; v.frequency.setValueAtTime(f, t); v.detune.value = det;
+        v.connect(g); v.start(t); v.stop(t + dur + 0.05);
+      }
+    }
+    function kick(t, v) {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(44, t + 0.12);
+      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+      o.connect(g).connect(bus); o.start(t); o.stop(t + 0.3);
+    }
+    function hiss(t, dur, vol, hp) {
+      const s = ac.createBufferSource(); s.buffer = noise;
+      const f = ac.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp;
+      const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(f).connect(g).connect(bus); s.start(t, Math.random() * 0.3); s.stop(t + dur + 0.02);
+    }
+    function playStep(S, s, t, sd) {
+      const deg = S.prog[bar % S.prog.length], root = note(S, deg);
+      const chord = [note(S, deg), note(S, deg + 2), note(S, deg + 4), note(S, deg) + 12];
+      const intro = cur !== "menu" && bar < 1, hot = want.boost >= 2 || want.boss;
+      const g = S.glitch && Math.random() < 0.25;
+      if (S.kick[s] === "x" && !intro) kick(t, .55);
+      if (want.boss && s % 4 === 2) kick(t, .3);
+      if (S.snare[s] === "x" && !intro) { hiss(t, .14, .16, 1400); voice("triangle", 190, t, .08, .06); }
+      if ((S.hat[s] === "x" || (hot && s % 2 === 1)) && !intro && !g) hiss(t, s % 4 === 2 ? .09 : .035, s % 2 ? .05 : .035, 7000);
+      const b = S.bass[s];
+      if (b && b !== ".") voice(S.bassT, mtof(root + S.bassOct + (b === "o" ? 12 : b === "5" ? 7 : 0)), t, sd * S.bassLen, S.bassVol, { lp: S.bassLp, det: S.bassDet });
+      if (S.pad && s === 0) for (const n of chord.slice(0, 3)) voice(S.pad, mtof(n + 12), t, sd * 16, S.padVol, { att: sd * 4, lp: S.padLp });
+      const a = S.arp[s];
+      if (a && a !== "." && (!intro || cur === "menu")) {
+        const oct = S.glitch && Math.random() < 0.3 ? 12 : 0;
+        voice(S.arpT, mtof(chord[+a] + S.arpOct + oct), t, sd * S.arpLen, S.arpVol, { lp: S.arpLp });
+      }
+      if (want.boss && s % 8 === 0) voice("square", mtof(root + 24 + (s ? 1 : 0)), t, sd * 6, .03, { lp: 2400 });
+    }
+    function pump() {
+      if (!ac || !init()) return;
+      const now = ac.currentTime, live = want.on && !want.paused && !document.hidden && ac.state === "running";
+      bus.gain.setTargetAtTime(live ? (want.style === "menu" ? .45 : .55) : 0, now, live ? .4 : .12);
+      filt.frequency.setTargetAtTime(want.dim ? 650 : 16000, now, want.dim ? .03 : .25);
+      if (!live) { nextTime = 0; return; }
+      if (nextTime < now) nextTime = now + 0.05;
+      while (nextTime < now + 0.16) {
+        if (step % 4 === 0 && cur !== want.style) { cur = want.style; step = 0; bar = 0; }
+        const S = STY[cur], bpm = S.bpm + (cur === "menu" ? 0 : want.boost * 6 + (want.boss ? 8 : 0)), sd = 60 / bpm / 4;
+        playStep(S, step % 16, nextTime, sd);
+        nextTime += sd; step++; if (step % 16 === 0) bar++;
+      }
+    }
+    setInterval(pump, 30);
+    return { want, styleName: k => (STY[k] || STY.menu).name };
+  })();
+  function toggleSfx() { save.muted = !save.muted; persist(); paintChips(); audio(); sfx.tap(); }
+  function toggleMusic() { save.musicOff = !save.musicOff; persist(); paintChips(); audio(); sfx.tap(); }
+  $("#mute").onclick = toggleSfx;
+  $("#music").onclick = toggleMusic;
+
+  /* ---------- RACE YOUR BEST (app-side; replays your own recorded inputs through window.CR.step) ----------
+     save.pb = { day, score, t, cfg, in: [[ticksSincePrevChange, x, y], ...] } for today's best daily run. */
+  save.racePb = save.racePb !== false;
+  const PB_VER = 22; /* bump when the course rules change, so an old recording never desyncs */
+  if (!save.pb || typeof save.pb !== "object" || !Array.isArray(save.pb.in) || save.pb.day !== day || save.pb.v !== PB_VER) save.pb = null;
+  let pbRun = null, pbLive = null, pbEndToasted = false;
+  const PB_COL = "#c58bff";
+  function pbFor(w) {
+    const pb = save.pb;
+    if (!pb || pb.day !== day || mode !== "daily") return null;
+    const key = pb.score + ":" + pb.t + ":" + pb.in.length;
+    if (pbRun && pbRun.key === key) return pbRun;
+    const r = CR.newRunner(pb.cfg), xs = [r.x], ys = [r.y], sc = [0];
+    let tx = W / 2, ty = SHIP_Y, i = 0, wait = pb.in.length ? pb.in[0][0] : Infinity;
+    while (r.alive && r.t < pb.t) {
+      while (i < pb.in.length && wait <= 0) { tx = pb.in[i][1]; ty = pb.in[i][2]; i++; wait = i < pb.in.length ? pb.in[i][0] : Infinity; }
+      CR.step(w, r, tx, r.cfg.speed, ty); wait--;
+      xs.push(r.x); ys.push(r.y); sc.push(r.score);
+    }
+    pbRun = { key, xs, ys, scores: sc, t: r.t, score: r.score, roll: 0 };
+    return pbRun;
+  }
+  function pbSave() {
+    save.pb = { v: PB_VER, day, score: me.score, t: me.t, cfg: Object.assign({}, me.cfg), in: inputs.slice() };
+    pbRun = null;
+  }
 
   // ---------- setup ----------
   function setup(daily) {
@@ -1547,11 +1786,13 @@ button.lk { cursor: pointer; }
     levelGoalToasted = false;
     me = CR.newRunner(cfg); targetX = W / 2; targetY = SHIP_Y; finger = null; trail = [];
     inputs = []; lastIn = { x: W / 2, y: SHIP_Y, t: 0 };
-    particles = []; floaters = []; rings = []; shake = 0; flash = null; acc = 0;
+    particles = []; floaters = []; rings = []; booms = []; shake = 0; flash = null; acc = 0;
     chunks = []; shattered = new Set(); hitStopMs = 0; slowMs = 0; slowCool = 0; nearRing = null; comboGlow = 0;
     ghostPassed = false; bestToasted = false; sector = 1; theme = TH.LIST[themeBase];
     bestBefore = mode === "daily" ? (save.best[day] || 0) : 0;
     runMissions = new Set(); runNovas = 0; runTrophies = [];
+    pbLive = mode === "daily" && save.racePb ? pbFor(world) : null; pbEndToasted = false;
+    if (pbLive) pbLive.roll = 0;
     tutStart();
     hideOverlays(); $("#toast").hidden = true;
     state = "play"; last = performance.now(); $("#pausebtn").hidden = false; $("#paused").hidden = true;
@@ -1560,8 +1801,10 @@ button.lk { cursor: pointer; }
   function paintChips() {
     $("#c-coins").textContent = save.coins.toLocaleString();
     $("#c-streak").textContent = save.streak;
-    $("#mute").textContent = save.muted ? "×" : "♪";
-    $("#mute").setAttribute("aria-label", save.muted ? "Sound off" : "Sound on");
+    $("#mute").classList.toggle("off", !!save.muted);
+    $("#mute").setAttribute("aria-label", save.muted ? "Sound effects off" : "Sound effects on");
+    $("#music").classList.toggle("off", !!save.musicOff);
+    $("#music").setAttribute("aria-label", save.musicOff ? "Music off" : "Music on");
   }
 
   function missionHTML(r) {
@@ -1648,7 +1891,7 @@ button.lk { cursor: pointer; }
 
   // ---------- levels UI ----------
   let curLevel = null, mapWorld = null, levelGoalToasted = false;
-  const OVERLAYS = ["#start", "#over", "#hangar", "#shop", "#levels", "#paused", "#trophies"];
+  const OVERLAYS = ["#start", "#over", "#hangar", "#shop", "#levels", "#paused", "#trophies", "#settings"];
   function hideOverlays() { OVERLAYS.forEach(id => $(id).hidden = true); }
   const starRow = (n, max = 3) => Array.from({ length: max }, (_, i) => i < n ? "<i>★</i>" : "★").join("");
   function rankHTML(gain) {
@@ -1798,6 +2041,12 @@ button.lk { cursor: pointer; }
     { id: "p-prism", kind: "paint", name: "Prismatic", rarity: "legendary", body: "prism", flame: "#ffffff" },
     { id: "p-void", kind: "paint", name: "Black Hole", rarity: "legendary", body: "#2a1d40", flame: "#b07bff" },
     { id: "b-starborn", kind: "badge", name: "Starborn", rarity: "legendary" },
+    { id: "x-pixel", kind: "boom", name: "Pixel Pop", rarity: "common", fx: "pixel", sw: "conic-gradient(#ff4f62 0 25%,#ffcc4d 0 50%,#7cf3a0 0 75%,#4fb8ff 0)" },
+    { id: "x-fireworks", kind: "boom", name: "Fireworks", rarity: "rare", fx: "fireworks", sw: "radial-gradient(circle at 30% 40%,#ffcc4d 12%,transparent 16%),radial-gradient(circle at 70% 55%,#ff7ad9 12%,transparent 16%),#1b2550" },
+    { id: "x-nova", kind: "boom", name: "Shockwave", rarity: "rare", fx: "nova", sw: "radial-gradient(circle,#1b2550 22%,#fff 26%,#1b2550 32%,#ffcc4d 40%,#1b2550 48%)" },
+    { id: "x-glitch", kind: "boom", name: "Glitch Out", rarity: "epic", fx: "glitch", sw: "linear-gradient(90deg,#ff2e5a 0 30%,#1b2550 0 40%,#2ef0ff 0 70%,#1b2550 0 78%,#ff2e5a 0)" },
+    { id: "x-implode", kind: "boom", name: "Singularity", rarity: "epic", fx: "implode", sw: "radial-gradient(circle,#000 25%,#fff 29%,#c58bff 36%,#3a1c6b 70%)" },
+    { id: "x-prism", kind: "boom", name: "Prism Nova", rarity: "legendary", fx: "prism", sw: "conic-gradient(#ff3ea5,#ffd23e,#3ef08a,#3ef0ff,#b07bff,#ff3ea5)" },
     { id: "p-founder", kind: "paint", name: "Founder", rarity: "legendary", body: "#fff1c2", flame: "#ffcc4d", exclusive: true },
     { id: "b-founder", kind: "badge", name: "Founder", rarity: "legendary", exclusive: true }
   ];
@@ -1812,6 +2061,7 @@ button.lk { cursor: pointer; }
   save.cos = save.cos || [];
   save.paint = save.paint || null;
   save.badge = save.badge || null;
+  save.boom = save.boom || null; /* v23: equipped ship explosion (cosmetic id), null = Classic */
   save.giftDay = save.giftDay || 0;
   save.bought = save.bought || {};
   save.pass = !!save.pass;
@@ -1828,7 +2078,8 @@ button.lk { cursor: pointer; }
     return { body: p.body, flame: p.flame };
   }
   const badgeName = () => { const b = save.badge && cosById(save.badge); return b ? b.name : ""; };
-  const swatch = c => c.kind === "paint" ? (c.body === "prism" ? "linear-gradient(90deg,#ff3ea5,#ffd23e,#3ef08a,#3ef0ff,#b07bff)" : `linear-gradient(135deg, ${c.body}, ${c.flame})`) : RARITY[c.rarity].color;
+  const kindName = k => k === "boom" ? "explosion" : k;
+  const swatch = c => c.sw ? c.sw : c.kind === "paint" ? (c.body === "prism" ? "linear-gradient(90deg,#ff3ea5,#ffd23e,#3ef08a,#3ef0ff,#b07bff)" : `linear-gradient(135deg, ${c.body}, ${c.flame})`) : RARITY[c.rarity].color;
 
   function openShop(tab) {
     audio(); sfx.tap();
@@ -1841,11 +2092,22 @@ button.lk { cursor: pointer; }
     let body = "";
     if (shopTab === "paints") {
       body = `${giftReady() ? `<div class="gift"><div><b>Daily gift</b><p>+${DAILY_GIFT} coins, free every day.</p></div><button class="btn pulse" id="gift">Claim</button></div>` : ""}
-        <div class="locker">${COSMETICS.filter(c => !c.exclusive).map(c => {
-          const own = save.cos.includes(c.id), on = (c.kind === "paint" ? save.paint : save.badge) === c.id, price = RARITY[c.rarity].coins;
+        <div class="locker">${COSMETICS.filter(c => !c.exclusive && c.kind !== "boom").map(c => {
+          const own = save.cos.includes(c.id), on = slotOf(c.kind) === c.id, price = RARITY[c.rarity].coins;
           return `<div class="lk ${on ? "on" : ""}" style="--rc:${RARITY[c.rarity].color}">
             <span class="sw ${c.kind}" style="background:${swatch(c)}">${c.kind === "badge" ? "✦" : ""}</span><b>${c.name}</b><small>${RARITY[c.rarity].name} ${c.kind}</small>
             ${own ? `<button class="buy ghosted" data-eq="${c.id}">${on ? "Unequip" : "Equip"}</button>` : `<button class="buy ${save.coins < price ? "poor" : ""}" data-coin="${c.id}">◉ ${price}</button>`}</div>`;
+        }).join("")}</div>`;
+    }
+    if (shopTab === "booms") {
+      const list = [{ id: null, name: "Classic", rarity: "common", free: true, sw: "radial-gradient(circle,#fff 12%,#ff7a3d 45%,#ff4f62 72%)" }].concat(COSMETICS.filter(c => c.kind === "boom"));
+      body = `<canvas class="prev" id="boom-prev" width="600" height="250" aria-label="Explosion preview"></canvas>
+        <p class="fine">Plays when your ship goes down. Tap ▶ to preview. Looks only, never changes your score.</p>
+        <div class="locker">${list.map(c => {
+          const key = c.id || "classic", own = c.free || save.cos.includes(c.id), on = (save.boom || null) === c.id, price = RARITY[c.rarity].coins;
+          const act = on ? `<span class="buy eq">Equipped</span>` : own ? `<button class="buy ghosted" data-bq="${key}">Equip</button>` : `<button class="buy ${save.coins < price ? "poor" : ""}" data-coin="${c.id}">◉ ${price}</button>`;
+          return `<div class="lk ${on ? "on" : ""} ${pvKey === key ? "pvon" : ""}" style="--rc:${RARITY[c.rarity].color}"><span class="sw" style="background:${c.sw}"></span><b>${c.name}</b><small>${c.free ? "Free" : RARITY[c.rarity].name} explosion</small>
+            <div class="two"><button class="buy ghosted pv" data-pv="${key}" aria-label="Preview ${c.name}">▶</button>${act}</div></div>`;
         }).join("")}</div>`;
     }
     if (shopTab === "store") {
@@ -1857,22 +2119,28 @@ button.lk { cursor: pointer; }
     if (shopTab === "locker") {
       const mine = COSMETICS.filter(c => save.cos.includes(c.id));
       body = mine.length ? `<div class="locker">${mine.map(c => {
-        const on = (c.kind === "paint" ? save.paint : save.badge) === c.id;
+        const on = slotOf(c.kind) === c.id;
         return `<button class="lk ${on ? "on" : ""}" data-eq="${c.id}" style="--rc:${RARITY[c.rarity].color}" aria-pressed="${on}">
-          <span class="sw ${c.kind}" style="background:${swatch(c)}">${c.kind === "badge" ? "✦" : ""}</span><b>${c.name}</b><small>${RARITY[c.rarity].name} ${c.kind}${on ? " · on" : ""}</small></button>`;
+          <span class="sw ${c.kind}" style="background:${swatch(c)}">${c.kind === "badge" ? "✦" : ""}</span><b>${c.name}</b><small>${RARITY[c.rarity].name} ${kindName(c.kind)}${on ? " · on" : ""}</small></button>`;
       }).join("")}</div>`
         : `<div class="next">Nothing here yet. Buy a paint or badge in the Paints tab.</div>`;
     }
     o.innerHTML = `<div class="h-top"><h2>Shop</h2><span class="chip coin">◉ <b>${save.coins.toLocaleString()}</b></span></div>
-      <div class="tabs" role="tablist">${[["paints", "Paints"], ["store", "Store"], ["locker", "Locker"]].map(([k, l]) => `<button class="tab ${shopTab === k ? "on" : ""}" role="tab" aria-selected="${shopTab === k}" data-st="${k}">${l}${k === "paints" && giftReady() ? " •" : ""}</button>`).join("")}</div>
+      <div class="tabs" role="tablist">${[["paints", "Paints"], ["booms", "Booms"], ["store", "Store"], ["locker", "Locker"]].map(([k, l]) => `<button class="tab ${shopTab === k ? "on" : ""}" role="tab" aria-selected="${shopTab === k}" data-st="${k}">${l}${k === "paints" && giftReady() ? " •" : ""}</button>`).join("")}</div>
       ${msg ? `<div class="notice">${msg}</div>` : ""}
       ${body}
       ${checkout ? checkoutHTML() : ""}
       <button class="btn alt" id="sh-back">Back</button>`;
-    o.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { sfx.tap(); shopTab = b.dataset.st; checkout = null; renderShop(); });
+    o.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { sfx.tap(); shopTab = b.dataset.st; checkout = null; if (shopTab === "booms") pvSet(save.boom || "classic", false); renderShop(); });
     o.querySelectorAll("[data-coin]").forEach(b => b.onclick = () => buyWithCoins(b.dataset.coin));
     o.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => { sfx.tap(); checkout = PAID.find(p => p.id === b.dataset.pay); renderShop(); const c = $("#co-ok"); if (c) c.scrollIntoView({ block: "nearest" }); });
     o.querySelectorAll("[data-eq]").forEach(b => b.onclick = () => equip(b.dataset.eq));
+    o.querySelectorAll("[data-pv]").forEach(b => b.onclick = () => {
+      audio(); pvSet(b.dataset.pv, true);
+      o.querySelectorAll(".lk.pvon").forEach(x => x.classList.remove("pvon")); b.closest(".lk").classList.add("pvon");
+      const pc = $("#boom-prev"); if (pc) pc.scrollIntoView({ block: "nearest", behavior: calm() ? "auto" : "smooth" });
+    });
+    o.querySelectorAll("[data-bq]").forEach(b => b.onclick = () => { const k = b.dataset.bq; if (k !== "classic" && !save.cos.includes(k)) return; save.boom = k === "classic" ? null : k; persist(); sfx.tap(); pvSet(k, false); renderShop(); });
     const g = $("#gift"); if (g) g.onclick = () => { save.giftDay = day; save.coins += DAILY_GIFT; persist(); paintChips(); sfx.mission(); renderShop(`+${DAILY_GIFT} coins. Come back tomorrow for another gift.`); };
     const ok = $("#co-ok"); if (ok) ok.onclick = completePurchase;
     const cx = $("#co-x"); if (cx) cx.onclick = () => { checkout = null; renderShop(); };
@@ -1884,7 +2152,7 @@ button.lk { cursor: pointer; }
     if (save.cos.includes(id)) return;
     if (save.coins < price) { sfx.near(); return renderShop(`You need ◉ ${price - save.coins} more coins. Play a run or finish a mission.`); }
     save.coins -= price; save.cos.push(id);
-    if (c.kind === "paint") save.paint = id; else save.badge = id;
+    if (c.kind === "paint") save.paint = id; else if (c.kind === "boom") { save.boom = id; pvSet(id, false); } else save.badge = id;
     persist(); paintChips(); sfx.power();
     renderShop(`${c.name} unlocked and equipped.`);
   }
@@ -1919,8 +2187,149 @@ button.lk { cursor: pointer; }
   function equip(id) {
     sfx.tap();
     const c = cosById(id); if (!c || !save.cos.includes(id)) return;
-    if (c.kind === "paint") save.paint = save.paint === id ? null : id; else save.badge = save.badge === id ? null : id;
+    if (c.kind === "paint") save.paint = save.paint === id ? null : id; else if (c.kind === "boom") save.boom = save.boom === id ? null : id; else save.badge = save.badge === id ? null : id;
     persist(); renderShop();
+  }
+
+  /* ---------- SHIP EXPLOSIONS (v23; cosmetic only, never touches window.CR) ----------
+     Each effect writes into a bucket { p: particles, r: rings, b: timed effects }, so the same code plays in a run and in the shop preview. */
+  const slotOf = k => k === "paint" ? save.paint : k === "boom" ? save.boom : save.badge;
+  const GAME_FX = { get p() { return particles; }, get r() { return rings; }, get b() { return booms; } };
+  const prune = (a, keep) => { let j = 0; for (const x of a) if (keep(x)) a[j++] = x; a.length = j; };
+  const rgbOf = c => { const n = parseInt(c.slice(1), 16); return `${n >> 16 & 255},${n >> 8 & 255},${n & 255}`; };
+  function fxBurst(B, x, y, color, n, sp, extra) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.283, s = (0.4 + Math.random() * 1.6) * (sp || 2.5);
+      B.p.push(Object.assign({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 30 + Math.random() * 25, color }, extra));
+    }
+  }
+  const BOOMS = {
+    classic: { play(B, x, y, col) { fxBurst(B, x, y, col, 40); fxBurst(B, x, y, "#ff4f62", 30); }, snd() {} },
+    pixel: {
+      play(B, x, y) {
+        const P = ["#ff4f62", "#ffcc4d", "#7cf3a0", "#4fb8ff", "#ff7ad9", "#ffffff"];
+        for (let i = 0; i < 48; i++) { const a = Math.random() * 6.283, s = 1.5 + Math.random() * 4.5; B.p.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 2.5, g: .16, life: 45 + Math.random() * 25, color: P[i % P.length], s: 3 + (i % 3) * 2 }); }
+        B.r.push({ x, y, r: 4, max: 70, c: "255,204,77", v: 5, w: 4 });
+      },
+      snd() { [880, 660, 523, 392, 262].forEach((f, i) => tone(f, .07, "square", .05, 0, i * .05)); }
+    },
+    fireworks: {
+      play(B, x, y) {
+        const C = ["#ff4f62", "#ffcc4d", "#4fe0cf", "#ff7ad9", "#7cf3a0"];
+        B.b.push({ type: "fw", x, y, t: 0, life: 70, shells: C.map((c, i) => ({ dx: (i - 2) * 46 + (Math.random() - .5) * 16, dy: Math.max(20 - y, -50 - Math.random() * 70), d: 6 + i * 9, c })) });
+        fxBurst(B, x, y, "#ffffff", 14, 1.5);
+      },
+      snd() { tone(300, .35, "sine", .05, 700); for (let i = 0; i < 5; i++) tone(1100 + i * 180, .09, "triangle", .07, -600, .1 + i * .15); }
+    },
+    nova: {
+      play(B, x, y) {
+        B.r.push({ x, y, r: 6, max: 240, c: "255,255,255", v: 9, w: 5 }, { x, y, r: 2, max: 170, c: "255,204,77", v: 6, w: 3 }, { x, y, r: 0, max: 110, c: "79,224,207", v: 4, w: 2 });
+        fxBurst(B, x, y, "#ffffff", 24, 3.5); fxBurst(B, x, y, "#ffcc4d", 20, 2);
+      },
+      snd() { tone(90, .8, "sawtooth", .1, -40); tone(1500, .5, "sine", .05, -1200); }
+    },
+    glitch: {
+      play(B, x, y) {
+        B.b.push({ type: "gl", x, y, t: 0, life: 42 });
+        fxBurst(B, x, y, "#2ef0ff", 22, 2.6, { s: 5 }); fxBurst(B, x, y, "#ff2e5a", 22, 2.6, { s: 5 });
+      },
+      snd() { for (let i = 0; i < 6; i++) tone(200 + Math.random() * 900, .05, "square", .05, 0, i * .04); }
+    },
+    implode: {
+      play(B, x, y) { B.b.push({ type: "imp", x, y, t: 0, life: 60 }); },
+      snd() { tone(200, .35, "sine", .08, 700); tone(60, .7, "sawtooth", .12, -20, .37); }
+    },
+    prism: {
+      play(B, x, y) {
+        ["255,62,165", "255,210,62", "62,240,138", "62,240,255", "176,123,255"].forEach((c, i) => B.r.push({ x, y, r: 2 + i * 4, max: 150 + i * 25, c, v: 5 + i, w: 3 }));
+        for (let i = 0; i < 36; i++) { const a = Math.random() * 6.283, s = 2 + Math.random() * 3.5; B.p.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 45 + Math.random() * 20, hue: i * 10, tri: true, s: 4 + Math.random() * 3 }); }
+        fxBurst(B, x, y, "#ffffff", 12, 2);
+      },
+      snd() { [1047, 1319, 1568, 2093, 2637].forEach((f, i) => tone(f, .25, "triangle", .05, 0, i * .05)); }
+    }
+  };
+  /* The equipped effect, falling back to Classic if it isn't owned. */
+  function boomKey() { const c = save.boom && cosById(save.boom); return c && c.fx && save.cos.includes(c.id) ? c.fx : "classic"; }
+  function boomStep(B) {
+    for (const b of B.b) {
+      b.t++;
+      if (b.type === "fw") for (const s of b.shells) if (!s.done && b.t >= s.d) {
+        s.done = true; const tx = b.x + s.dx, ty = b.y + s.dy;
+        fxBurst(B, tx, ty, s.c, 26, 2.2, { g: .05 }); fxBurst(B, tx, ty, "#ffffff", 6, 1);
+        B.r.push({ x: tx, y: ty, r: 2, max: 50, c: rgbOf(s.c), v: 3.5, w: 2 });
+      }
+      if (b.type === "imp") {
+        if (b.t < 22 && b.t % 2 === 0) for (let k = 0; k < 4; k++) { const a = Math.random() * 6.283; B.p.push({ x: b.x + Math.cos(a) * 70, y: b.y + Math.sin(a) * 70, vx: -Math.cos(a) * 3.6, vy: -Math.sin(a) * 3.6, life: 19, color: k % 2 ? "#c58bff" : "#ffd696", s: 2.5 }); }
+        if (b.t === 22) {
+          fxBurst(B, b.x, b.y, "#c58bff", 40, 3.2); fxBurst(B, b.x, b.y, "#ffffff", 16, 2);
+          B.r.push({ x: b.x, y: b.y, r: 6, max: 230, c: "197,139,255", v: 8, w: 4 }, { x: b.x, y: b.y, r: 2, max: 120, c: "255,214,150", v: 5, w: 2 });
+        }
+      }
+    }
+    prune(B.b, b => b.t < b.life);
+  }
+  function fxDrawRings(g, list) {
+    for (const r of list) { g.strokeStyle = `rgba(${r.c || "255,255,255"},${Math.max(0, 1 - r.r / r.max)})`; g.lineWidth = r.w || 3; g.beginPath(); g.arc(r.x, r.y, Math.max(0, r.r), 0, 6.28); g.stroke(); }
+  }
+  function fxDrawParticles(g, list) {
+    for (const p of list) {
+      const s = p.s || 3; g.globalAlpha = Math.max(0, Math.min(1, p.life / 50));
+      g.fillStyle = p.hue != null ? `hsl(${(p.hue + p.life * 8) % 360},95%,65%)` : p.color;
+      if (p.tri) { g.save(); g.translate(p.x, p.y); g.rotate(p.life * .25); g.beginPath(); g.moveTo(0, -s); g.lineTo(s * .8, s * .6); g.lineTo(-s * .8, s * .6); g.closePath(); g.fill(); g.restore(); }
+      else g.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+    }
+    g.globalAlpha = 1;
+  }
+  function fxDrawBooms(g, list) {
+    for (const b of list) {
+      if (b.type === "fw") for (const s of b.shells) {
+        if (s.done) continue;
+        const q = b.t / s.d, x = b.x + s.dx * q, y = b.y + s.dy * q;
+        g.strokeStyle = "rgba(255,214,150,.7)"; g.lineWidth = 2; g.beginPath(); g.moveTo(b.x + s.dx * q * .6, b.y + s.dy * q * .6); g.lineTo(x, y); g.stroke();
+        g.fillStyle = "#ffffff"; g.fillRect(x - 1.5, y - 1.5, 3, 3);
+      }
+      if (b.type === "gl" && b.t < 42) {
+        const k = (1 - b.t / 42) * (calm() ? .45 : 1);
+        g.save(); g.globalCompositeOperation = "lighter";
+        for (let i = 0; i < 7; i++) {
+          const w = 10 + Math.random() * 60 * k, h = 3 + Math.random() * 10, ox = (Math.random() - .5) * 100, oy = (Math.random() - .5) * 64;
+          g.fillStyle = i % 2 ? `rgba(46,240,255,${.55 * k})` : `rgba(255,46,90,${.55 * k})`; g.fillRect(b.x + ox - w / 2, b.y + oy - h / 2, w, h);
+        }
+        g.restore();
+      }
+      if (b.type === "imp" && b.t < 24) {
+        const q = Math.min(1, b.t / 22), R = 4 + 12 * q;
+        g.save();
+        g.strokeStyle = `rgba(197,139,255,${.3 + .6 * q})`; g.lineWidth = 2; g.beginPath(); g.arc(b.x, b.y, 80 * (1 - q) + R, 0, 6.283); g.stroke();
+        g.fillStyle = "#000"; g.beginPath(); g.arc(b.x, b.y, R, 0, 6.283); g.fill();
+        g.strokeStyle = "rgba(255,255,255,.85)"; g.lineWidth = 1.4; g.beginPath(); g.arc(b.x, b.y, R + 1, 0, 6.283); g.stroke();
+        g.restore();
+      }
+    }
+  }
+  /* Shop preview: the ship drifts, blows up with the chosen effect, and loops. */
+  let pvKey = "classic", pvT = 39;
+  const PV = { p: [], r: [], b: [] };
+  function pvSet(key, loud) {
+    pvKey = key; pvT = 39; PV.p.length = 0; PV.r.length = 0; PV.b.length = 0;
+    if (loud) { const c = key !== "classic" && cosById(key); (BOOMS[c ? c.fx : "classic"] || BOOMS.classic).snd(); if (!c) tone(196, .3, "sawtooth", .07, -80); }
+  }
+  function drawBoomPreview() {
+    const cvs = $("#boom-prev"); if (!cvs) return;
+    const g = cvs.getContext("2d"), s = cvs.width / W, y = 92, look = shipLook();
+    const c = pvKey !== "classic" && cosById(pvKey), fx = BOOMS[c ? c.fx : "classic"] || BOOMS.classic;
+    g.setTransform(s, 0, 0, s, 0, 0);
+    TH.drawBackground(g, bgT, theme || TH.LIST[0], true);
+    pvT++;
+    const cyc = pvT % 130, sx = W / 2 + Math.sin(pvT * 0.05) * 40;
+    if (cyc === 40) fx.play(PV, sx, y, look.body);
+    if (cyc < 40) SHIP3D.draw(g, sx, y, { body: look.body, flame: look.flame, alpha: Math.min(1, cyc / 10), roll: -Math.cos(pvT * 0.05) * 0.4, t: pvT, scale: 1.1, thrust: true, lights: true });
+    for (const p of PV.p) { p.x += p.vx; p.y += p.vy; p.vx *= .96; p.vy = p.vy * .96 + (p.g || 0); p.life--; }
+    prune(PV.p, p => p.life > 0);
+    for (const r of PV.r) r.r += r.v || 7;
+    prune(PV.r, r => r.r < r.max);
+    boomStep(PV);
+    fxDrawRings(g, PV.r); fxDrawParticles(g, PV.p); fxDrawBooms(g, PV.b);
   }
 
   function showStart() {
@@ -1931,21 +2340,78 @@ button.lk { cursor: pointer; }
     const best = save.best[day] || 0;
     o.innerHTML = `<div class="eyebrow">${mode === "daily" ? `Daily No. ${day} · ${theme.name}` : `Random course · ${theme.name}`}</div>
       <h2>Meteor <span class="hl">Pilot</span></h2>
-      <div class="quick"><b>Drag anywhere</b>. Your ship flies just above your finger. Dodge meteors. Chain <b style="color:var(--gold)">★</b> for a combo. Skim past rocks for close calls. Watch for showers, gates, comets and golden stars. Last to 1:45 to face the <b style="color:var(--hurt)">Mothership</b>. Beat the ghost from ${p[0]} ${p[1]}: <b>${ghost.score.toLocaleString()}</b>${best ? ` · your best <b>${best.toLocaleString()}</b>` : ""}</div>
+      <div class="quick"><b>Drag anywhere</b>. Your ship flies just above your finger. Dodge meteors. Chain <b style="color:var(--gold)">★</b> for a combo. Skim past rocks for close calls. Watch for showers, gates, comets, golden stars and <b style="color:#c58bff">black holes</b>. Last to 1:45 to face the <b style="color:var(--hurt)">Mothership</b>. Beat the ghost from ${p[0]} ${p[1]}: <b>${ghost.score.toLocaleString()}</b>${best ? ` · your best <b>${best.toLocaleString()}</b>` : ""}</div>
       <div class="duo"><button class="btn pulse" id="play">Play daily</button><button class="btn lvl" id="levels-btn">Levels ★ ${LV.total(save.levels)}</button></div>
       ${rankHTML()}
       ${missionHTML()}
       ${loadoutHTML()}
-      <div class="btns">${mode === "random" ? `<button class="btn alt" id="daily">Back to daily course</button>` : ""}<button class="btn alt" id="shop-btn">🛒 Shop${giftReady() ? " •" : ""}</button><button class="btn alt" id="trophies-btn">🏆 Trophies ${trophyCount()}/${TROPHIES.length}</button>${save.tutDone ? `<button class="btn alt" id="howto">Play with tips</button>` : ""}</div>
+      ${mode === "daily" && save.pb ? `<button class="btn alt" id="race-pb" aria-pressed="${save.racePb}" style="${save.racePb ? `border-color:${PB_COL};color:${PB_COL}` : ""}">Race my best (${save.pb.score.toLocaleString()}): ${save.racePb ? "On" : "Off"}</button>` : ""}
+      <div class="btns">${mode === "random" ? `<button class="btn alt" id="daily">Back to daily course</button>` : ""}<button class="btn alt" id="shop-btn">🛒 Shop${giftReady() ? " •" : ""}</button><button class="btn alt" id="trophies-btn">🏆 Trophies ${trophyCount()}/${TROPHIES.length}</button><button class="btn alt" id="settings-btn">⚙ Settings</button>${save.tutDone ? `<button class="btn alt" id="howto">Play with tips</button>` : ""}</div>
       <details class="news"><summary>What's new · v${CHANGELOG[0].v}</summary><ul>${CHANGELOG[0].notes.map(n => `<li>${n}</li>`).join("")}</ul></details>`;
     hideOverlays(); o.hidden = false;
     $("#play").onclick = start;
     $("#levels-btn").onclick = () => openLevels();
     $("#trophies-btn").onclick = () => openTrophies();
     $("#shop-btn").onclick = () => openShop();
+    $("#settings-btn").onclick = () => openSettings(showStart);
     const d = $("#daily"); if (d) d.onclick = () => { setup(true); showStart(); };
+    const rp = $("#race-pb"); if (rp) rp.onclick = () => { audio(); sfx.tap(); save.racePb = !save.racePb; persist(); showStart(); };
     const hw = $("#howto"); if (hw) hw.onclick = () => { save.tutDone = false; persist(); start(); };
     $("#open-hangar").onclick = () => { audio(); sfx.tap(); openHangar(); };
+  }
+
+  // ---------- SETTINGS (v21; display + input only, never touches window.CR) ----------
+  const SETTINGS = [
+    { k: "gap", name: "Finger gap", desc: "How far above your finger the ship flies.", opts: [["small", "Small"], ["normal", "Normal"], ["large", "Large"]], demo: true },
+    { k: "hand", name: "Thumb side", desc: "Nudges the ship sideways so your thumb never covers it.", opts: [["left", "Left hand"], ["center", "Center"], ["right", "Right hand"]], demo: true },
+    { k: "haptics", name: "Vibration", desc: "Buzz on hits, cores and trophies (phones that support it).", opts: [[true, "On"], [false, "Off"]] },
+    { k: "motion", name: "Calm effects", desc: "Less screen shake, softer flashes, no glitch slices. Auto follows your phone's reduce-motion setting.", opts: [["auto", "Auto"], ["on", "On"], ["off", "Off"]] },
+    { k: "gfx", name: "Graphics", desc: "Low draws one background layer, fewer sparks and a lighter resolution. Smoother on older phones.", opts: [["high", "High"], ["low", "Low"]] },
+    { k: "music", name: "Music", desc: "The soundtrack.", opts: [[true, "On"], [false, "Off"]] },
+    { k: "sfx", name: "Sound FX", desc: "Stars, hits and alarms.", opts: [[true, "On"], [false, "Off"]] }
+  ];
+  const setGet = k => k === "music" ? !save.musicOff : k === "sfx" ? !save.muted : save.set[k];
+  let settingsBack = null;
+  function openSettings(back) {
+    audio(); sfx.tap();
+    settingsBack = back || showStart;
+    OVERLAYS.forEach(id => { if (id !== "#settings") $(id).hidden = true; });
+    renderSettings(); $("#settings").hidden = false; $("#settings").scrollTop = 0;
+  }
+  function renderSettings() {
+    const o = $("#settings");
+    o.innerHTML = `<div class="h-top"><h2>Settings</h2></div>
+      ${SETTINGS.map(S => `<div class="srow"><h3>${S.name}</h3><p>${S.desc}</p>
+        ${S.k === "gap" ? `<canvas class="gapdemo" id="gapdemo" width="600" height="148" aria-label="Preview of where the ship sits above your finger"></canvas>` : ""}
+        <div class="seg" role="radiogroup" aria-label="${S.name}">${S.opts.map(([v, l]) => `<button role="radio" aria-checked="${setGet(S.k) === v}" class="${setGet(S.k) === v ? "on" : ""}" data-sk="${S.k}" data-sv="${String(v)}">${l}</button>`).join("")}</div></div>`).join("")}
+      <p class="fine">Settings only change how the game looks, sounds and feels in your hand. Courses and scores stay the same for everyone.</p>
+      <button class="btn" id="set-done">Done</button>`;
+    o.querySelectorAll("[data-sk]").forEach(b => b.onclick = () => {
+      const k = b.dataset.sk, raw = b.dataset.sv, v = raw === "true" ? true : raw === "false" ? false : raw;
+      if (k === "music") { if (save.musicOff === v) toggleMusic(); }
+      else if (k === "sfx") { if (save.muted === v) toggleSfx(); }
+      else { save.set[k] = v; persist(); sfx.tap(); }
+      if (k === "haptics" && v) vibrate(40);
+      if (k === "gfx") resize();
+      renderSettings();
+      const nb = o.querySelector(`[data-sk="${k}"][data-sv="${raw}"]`); if (nb) nb.focus({ preventScroll: true });
+    });
+    $("#set-done").onclick = () => { sfx.tap(); o.hidden = true; (settingsBack || showStart)(); };
+    drawGapDemo();
+  }
+  /* Little picture of a thumb and the ship above it, so the gap and thumb side are easy to judge. */
+  function drawGapDemo() {
+    const c = $("#gapdemo"); if (!c) return;
+    const g = c.getContext("2d"), s = c.width / 300;
+    g.setTransform(s, 0, 0, s, 0, 0); g.clearRect(0, 0, 300, 74);
+    const lift = (GAPS[save.set.gap] ?? 62) * 0.45, dx = (HAND[save.set.hand] || 0) * 0.9;
+    const fx = 150, fy = 58;
+    const side = save.set.hand === "left" ? -1 : save.set.hand === "right" ? 1 : 0;
+    g.fillStyle = "rgba(238,240,255,.16)"; g.strokeStyle = "rgba(238,240,255,.5)"; g.lineWidth = 1.5;
+    g.save(); g.translate(fx, fy); g.rotate(side * 0.55);
+    g.beginPath(); g.ellipse(0, 26, 15, 30, 0, 0, 6.283); g.fill(); g.stroke(); g.restore();
+    g.setLineDash([3, 4]); g.beginPath(); g.moveTo(fx, fy - 6); g.lineTo(fx + dx, fy - lift + 12); g.stroke(); g.setLineDash([]);
+    SHIP3D.draw(g, fx + dx, Math.max(14, fy - lift), { body: shipLook().body, flame: shipLook().flame, roll: 0, t: 10, scale: 0.85, thrust: true, lights: true });
   }
 
   // ---------- sizing ----------
@@ -1956,7 +2422,7 @@ button.lk { cursor: pointer; }
     stage.style.width = w + "px"; stage.style.height = (w * 16 / 9) + "px";
   }
   function resize() {
-    const r = stage.getBoundingClientRect(), dpr = Math.min(3, window.devicePixelRatio || 1);
+    const r = stage.getBoundingClientRect(), dpr = Math.min(lowGfx() ? 1.5 : 3, window.devicePixelRatio || 1);
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
   }
   addEventListener("resize", fit);
@@ -1965,11 +2431,14 @@ button.lk { cursor: pointer; }
   // ---------- input ----------
   // The ship rides just above the fingertip (touch) or right on the cursor (mouse), so your finger never hides it.
   const LIFT = { touch: 62, pen: 40, mouse: 0 };
+  const GAPS = { small: 38, normal: 62, large: 92 }, HAND = { left: 26, center: 0, right: -26 };
   function aim(e) {
     const r = stage.getBoundingClientRect();
     const fx = (e.clientX - r.left) / r.width * W, fy = (e.clientY - r.top) / r.height * H;
     finger = e.pointerType === "mouse" ? null : { x: fx, y: fy };
-    targetX = fx; targetY = fy - (LIFT[e.pointerType] ?? 50);
+    const touchy = e.pointerType === "touch" || e.pointerType === "pen";
+    const lift = e.pointerType === "touch" ? (GAPS[save.set.gap] ?? 62) : e.pointerType === "pen" ? Math.round((GAPS[save.set.gap] ?? 62) * 0.65) : (LIFT[e.pointerType] ?? 50);
+    targetX = fx + (touchy ? (HAND[save.set.hand] || 0) : 0); targetY = fy - lift;
   }
   stage.addEventListener("pointerdown", e => { if (state !== "play" || e.target.closest("button")) return; try { stage.setPointerCapture(e.pointerId); } catch (_) {} aim(e); });
   stage.addEventListener("pointermove", e => { if (state === "play") aim(e); });
@@ -1993,15 +2462,20 @@ button.lk { cursor: pointer; }
     $("#pausebtn").hidden = true; $("#tip").hidden = true;
     const o = $("#paused");
     o.innerHTML = `<div class="eyebrow">Paused</div><div class="big">${me.score.toLocaleString()}</div>
-      <button class="btn" id="resume">Resume</button><button class="btn alt" id="quit">End run</button>`;
+      <button class="btn" id="resume">Resume</button>
+      <div class="btns"><button class="btn alt" id="p-music"></button><button class="btn alt" id="p-sfx"></button></div>
+      <div class="btns"><button class="btn alt" id="p-set">⚙ Settings</button><button class="btn alt" id="quit">End run</button></div>`;
     o.hidden = false;
+    const lbl = () => { $("#p-music").textContent = `Music: ${save.musicOff ? "Off" : "On"}`; $("#p-sfx").textContent = `Sound FX: ${save.muted ? "Off" : "On"}`; };
+    lbl(); $("#p-music").onclick = () => { toggleMusic(); lbl(); }; $("#p-sfx").onclick = () => { toggleSfx(); lbl(); };
+    $("#p-set").onclick = () => openSettings(() => { $("#paused").hidden = false; lbl(); $("#resume").focus({ preventScroll: true }); });
     $("#resume").onclick = resume; $("#quit").onclick = () => { o.hidden = true; me.alive = false; me.quit = true; state = "dying"; gameOver(); };
     $("#resume").focus({ preventScroll: true });
   }
   function resume() {
     if (state !== "paused") return;
     audio(); sfx.tap();
-    $("#paused").hidden = true; $("#pausebtn").hidden = false;
+    $("#paused").hidden = true; $("#settings").hidden = true; $("#pausebtn").hidden = false;
     state = "countdown"; resumeAt = performance.now() + 2400;
   }
   $("#pausebtn").onclick = pause;
@@ -2019,7 +2493,7 @@ button.lk { cursor: pointer; }
     trail.push({ x: me.x, y: me.y + 12 }); if (trail.length > 18) trail.shift();
     if (save.trail === "sparks" && me.t % 2 === 0) particles.push({ x: me.x + (Math.random() - .5) * 8, y: me.y + 14, vx: (Math.random() - .5) * 1.2, vy: 2 + Math.random() * 2, life: 18 + Math.random() * 10, color: Math.random() < .5 ? "#ffcc4d" : "#ff7a3d" });
     for (const e of ev) {
-      if (e.type === "survived") floaters.push({ x: W / 2, y: H * 0.42, t: 0, text: "SURVIVED +100", color: "#4fe0cf", size: 18 });
+      if (e.type === "survived") floaters.push({ x: W / 2, y: H * 0.42, t: 0, text: e.event === "well" ? "BLACK HOLE CLOSED +100" : "SURVIVED +100", color: e.event === "well" ? "#c58bff" : "#4fe0cf", size: 18 });
       if (e.type === "guard") { floaters.push({ x: me.x, y: me.y - 40, t: 0, text: "COMBO SAVED", color: "#ffcc4d", size: 15 }); }
       if (e.type === "gate") { floaters.push({ x: e.x, y: e.y, t: 0, text: "GATE +" + e.pts, color: "#8ca0ff", size: 17 }); sfx.power(); burst(e.x, e.y + 30, "#8ca0ff", 16); }
       if (e.type === "star" && e.gold) { burst(e.x, e.y, "#ffffff", 30); burst(e.x, e.y, "#ffcc4d", 30); shake = 8; flash = { c: "255,230,150", a: .4 }; sfx.best(); toast(`Golden star +${e.pts}`, true); }
@@ -2040,7 +2514,7 @@ button.lk { cursor: pointer; }
         const a = rockAt(e.x, e.y, me.t, false); if (a) shatter(a, me.t, 1);
         hitStop(110); slowMs = 0;
       }
-      if (e.type === "dead") { burst(me.x, me.y, skin().body, 40); burst(me.x, me.y, "#ff4f62", 30); shake = 22; sfx.dead(); vibrate([80, 40, 120]); hitStop(260); }
+      if (e.type === "dead") { const bk = BOOMS[boomKey()]; bk.play(GAME_FX, me.x, me.y, shipLook().body); bk.snd(); shake = 22; sfx.dead(); vibrate([80, 40, 120]); hitStop(260); }
       if (e.type === "bossIn") { toast(`Catch ${CR.BOSS_HP} ◆ cores to break it`, true); shake = 10; }
       if (e.type === "core") {
         burst(e.x, e.y, "#4fe0cf", 22); burst(e.x, e.y, "#ffffff", 8); bossFlash = 10; shake = Math.max(shake, 5); sfx.core(); vibrate(25);
@@ -2049,9 +2523,26 @@ button.lk { cursor: pointer; }
       if (e.type === "bossDown") { bossExplode(e); hitStop(220); }
       if (e.type === "bossGone") { toast(`Mothership escaped · survived +${e.pts}`); sfx.mission(); }
     }
+    if (world.wellsLive) for (const w of world.wellsLive) {
+      if (me.t === w.t - 60) { toast("⚠ BLACK HOLE · stay clear of the core"); sfx.rumble(); vibrate([30, 50, 30]); }
+    }
+    const gulped = world.swallowAt && world.swallowAt.get(me.t);
+    if (gulped) {
+      const wl = CR.wellAt(world, me.t);
+      if (wl) {
+        const ws = CR.wellState(wl, me.t);
+        for (const id of gulped) {
+          const it = world.items[id];
+          if (!it || me.got.has(id) || me.smashed.has(id)) continue;
+          burst(ws.x, ws.y, it.kind === "star" ? "#ffcc4d" : "#c58bff", 8); rings.push({ x: ws.x, y: ws.y, r: 4, max: 46 });
+          if (me.alive) sfx.gulp();
+        }
+      }
+    }
     if (world.bosses) for (const b of world.bosses) if (me.t === b.t0 - CR.BOSS_WARN) { toast("⚠ MOTHERSHIP INCOMING"); sfx.siren(); vibrate([40, 60, 40]); }
     if (curLevel) levelTick();
     if (!ghostPassed && !curLevel && me.t > ghost.t && me.alive) { ghostPassed = true; toast(`You outlasted the ghost from ${world.partner[0]}`); sfx.best(); }
+    if (pbLive && !pbEndToasted && me.t === pbLive.t && me.alive && me.t < CR.MAX_T - 1) { pbEndToasted = true; toast("Your best run ended here. Keep going!", true); sfx.best(); }
     if (!bestToasted && bestBefore > 0 && me.score > bestBefore) { bestToasted = true; toast("New best! Keep going", true); sfx.best(); }
     for (const e of world.events) {
       if (me.t === e.t - 45 && !CR.eventHidden(world, e)) { toast(EVENT_INFO[e.type].name, e.type === "starrain"); sfx.alarm(); }
@@ -2090,7 +2581,7 @@ button.lk { cursor: pointer; }
   }
   // ---------- trophies (app-side; reads runs, never changes the rules) ----------
   save.ach = save.ach && typeof save.ach === "object" ? save.ach : {};
-  save.rec = Object.assign({ stars: 0, near: 0, secs: 0, score: 0, mult: 1, golds: 0, gates: 0, novas: 0, ghostWins: 0, bosses: 0 }, save.rec || {});
+  save.rec = Object.assign({ stars: 0, near: 0, secs: 0, score: 0, mult: 1, golds: 0, gates: 0, novas: 0, ghostWins: 0, bosses: 0, wells: 0 }, save.rec || {});
   let runNovas = 0, runTrophies = [];
   const best = (k, v) => Math.max(save.rec[k] || 0, v || 0);
   /* live: can unlock mid-run from this run's stats. Others are checked when a run ends. */
@@ -2107,6 +2598,7 @@ button.lk { cursor: pointer; }
     { id: "surv120", icon: "2m", name: "Marathon", desc: "Survive 2 minutes", coins: 50, goal: 120, live: true, of: r => best("secs", r && Math.floor(r.t / TPS)) },
     { id: "score2k", icon: "2.5k", name: "High Flyer", desc: "Score 2,500 in one run", coins: 30, goal: 2500, live: true, of: r => best("score", r && r.score) },
     { id: "score5k", icon: "5k", name: "Meteor Legend", desc: "Score 5,000 in one run", coins: 60, goal: 5000, live: true, of: r => best("score", r && r.score) },
+    { id: "well", icon: "◉", name: "Event Horizon", desc: "Ride out a black hole", coins: 25, goal: 1, live: true, of: r => best("wells", r && r.wells) },
     { id: "boss", icon: "◆", name: "Boss Breaker", desc: "Destroy a Mothership", coins: 50, goal: 1, live: true, of: r => best("bosses", r && r.bossesDown) },
     { id: "ghost", icon: "◐", name: "Ghost Buster", desc: "Beat the ghost on the daily course", coins: 25, goal: 1, of: () => save.rec.ghostWins },
     { id: "flawless", icon: "★★★", name: "Flawless", desc: "Earn 3 stars on a level", coins: 30, goal: 1, of: () => Object.values(save.levels).some(v => v >= 3) ? 1 : 0 },
@@ -2133,7 +2625,7 @@ button.lk { cursor: pointer; }
     const R = save.rec;
     R.stars = best("stars", r.stars); R.near = best("near", r.near); R.secs = best("secs", Math.floor(r.t / TPS));
     R.score = best("score", r.score); R.mult = best("mult", r.maxMult); R.golds = best("golds", r.golds);
-    R.gates = best("gates", r.gates); R.novas = best("novas", runNovas); R.bosses = best("bosses", r.bossesDown);
+    R.gates = best("gates", r.gates); R.novas = best("novas", runNovas); R.bosses = best("bosses", r.bossesDown); R.wells = best("wells", r.wells);
     if (beatGhost) R.ghostWins++;
     trophyCheck(r, false); persist();
   }
@@ -2160,7 +2652,7 @@ button.lk { cursor: pointer; }
     $("#tr-back").focus({ preventScroll: true });
   }
 
-  function vibrate(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+  function vibrate(p) { if (!save.set.haptics) return; try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
   function burst(x, y, color, n) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2, s = 1 + Math.random() * 4;
@@ -2257,12 +2749,15 @@ button.lk { cursor: pointer; }
     let newBest = false;
     if (mode === "daily") {
       if (me.score > (save.best[day] || 0)) { save.best[day] = me.score; newBest = true; }
+      if (newBest) pbSave();
       if (save.lastDay !== day) { save.streak = save.lastDay === day - 1 ? save.streak + 1 : 1; save.lastDay = day; }
     }
     const xpRun = Math.round(LV.runXP(me, 0) * (save.pass ? 1.25 : 1)), upsRun = LV.addXP(save, xpRun);
     let upCoinsRun = 0; upsRun.forEach(lv => { upCoinsRun += LV.levelUpCoins(lv); }); save.coins += upCoinsRun;
     if (upsRun.length) setTimeout(() => { sfx.best(); toast(`Rank up! Pilot Lv ${save.pilot}`, true); }, 700);
     const diff = me.score - ghost.score, p = world.partner, secs = me.t / TPS;
+    const pbDiff = pbLive ? me.score - pbLive.score : null;
+    const pbLine = pbLive ? `<div class="next" style="color:${pbDiff > 0 ? "var(--tide)" : PB_COL}">${pbDiff > 0 ? `You beat your best-run ghost by ${pbDiff.toLocaleString()}. This run is your new ghost.` : `${(-pbDiff).toLocaleString()} short of your best-run ghost`}</div>` : newBest && mode === "daily" ? `<div class="next" style="color:${PB_COL}">This run is now your best-run ghost. Race it next time.</div>` : "";
     trophyEnd(me, mode === "daily" && !me.quit && diff >= 0);
     persist(); paintChips();
     const missionBonus = MISSIONS.filter(m => runMissions.has(m.key)).reduce((a, m) => a + m.reward, 0);
@@ -2271,6 +2766,7 @@ button.lk { cursor: pointer; }
     o.innerHTML = `<div class="eyebrow ${newBest ? "hot" : ""}">${newBest ? "New best today" : mode === "daily" ? `Best today ${(save.best[day] || 0).toLocaleString()}` : "Run over"}</div>
       <div class="big">${me.score.toLocaleString()}</div>
       <div class="verdict ${diff >= 0 ? "win" : "lose"}">${diff >= 0 ? `You beat the ghost from ${p[0]} by ${diff.toLocaleString()}` : `${(-diff).toLocaleString()} short of the ghost from ${p[0]}`}</div>
+      ${pbLine}
       <div class="stats"><div><b>${CR.fmtTime(secs)}</b><span>time</span></div><div><b>${me.stars}</b><span>stars</span></div><div><b>×${me.maxMult}</b><span>combo</span></div><div><b>${me.near}</b><span>close calls</span></div></div>
       <div class="earn">+${earned + missionBonus} ◉${missionBonus ? ` (${missionBonus} from missions)` : ""}</div>
       ${upsRun.length ? `<div class="lvup">Rank up! Pilot Lv ${save.pilot} · ${LV.rankName(save.pilot)} · +${upCoinsRun} ◉</div>` : ""}
@@ -2339,7 +2835,7 @@ button.lk { cursor: pointer; }
   function drawPreview(pv, th) {
     const g = pv.getContext("2d"), s = pv.width / W;
     g.setTransform(s, 0, 0, s, 0, 0);
-    TH.drawBackground(g, bgT, th);
+    TH.drawBackground(g, bgT, th, lowGfx());
     SAMPLE.forEach((a, i) => { a.x = 70 + i * 110; a.y = 70 + Math.sin(bgT * 0.03 + i * 2) * 14; a.it.vy = 3; if (i === 1 || !M3.draw(g, a, bgT, th.a, false)) TH.drawHazard(g, th.rock === "rock" ? "wire" : th.rock, a, bgT, th, rockShape(a.it), i === 1 ? th.b : null); });
   }
   function drawTrail(t) {
@@ -2388,7 +2884,7 @@ button.lk { cursor: pointer; }
       return;
     }
     if (!it.zig && M3.draw(ctx, a, t, theme ? theme.a : "#ff7a3d", it.gate >= 0)) {
-      if (state === "play" && r > 14 && Math.random() < 0.07) particles.push({ x: a.x + (Math.random() - .5) * r, y: a.y - r * .6, vx: (Math.random() - .5) * .6, vy: -.4 - Math.random() * .8, life: 16 + Math.random() * 14, color: Math.random() < .5 ? "#ffb35c" : (theme ? theme.a : "#ff7a3d") });
+      if (state === "play" && r > 14 && !lowGfx() && Math.random() < 0.07) particles.push({ x: a.x + (Math.random() - .5) * r, y: a.y - r * .6, vx: (Math.random() - .5) * .6, vy: -.4 - Math.random() * .8, life: 16 + Math.random() * 14, color: Math.random() < .5 ? "#ffb35c" : (theme ? theme.a : "#ff7a3d") });
       return;
     }
     if (theme && TH.drawHazard(ctx, theme.rock, a, t, theme, rockShape(it), it.gate >= 0 ? "#ffffff" : it.zig ? theme.b : null)) return;
@@ -2482,6 +2978,64 @@ button.lk { cursor: pointer; }
     ctx.restore();
     if (hurt && kill == null && state === "play" && Math.random() < 0.35) particles.push({ x: p.x + (Math.random() - .5) * 90, y: p.y + 8, vx: (Math.random() - .5) * .5, vy: -.6 - Math.random() * .6, life: 22 + Math.random() * 16, color: Math.random() < .4 ? "#ff7a3d" : "#5a628f", s: 3 + Math.random() * 3 });
   }
+  /* ---------- BLACK HOLE (display only; position, bending and swallowing live in window.CR) ----------
+     Purple glow, infalling streaks, a tilted accretion disk with a hot rim, a white photon ring and a pitch-black core. */
+  function drawWell(t) {
+    if (!world.wellsLive) return;
+    for (const w of world.wellsLive) {
+      if (t >= w.t - 90 && t < w.t) {   // warning: a dashed circle where it will open
+        const ws = CR.wellState(w, w.t), k = 1 - (w.t - t) / 90;
+        ctx.save(); ctx.strokeStyle = `rgba(197,139,255,${.25 + .5 * k * (Math.floor(t / 6) % 2 ? 1 : .5)})`; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.lineDashOffset = t * 0.6;
+        ctx.beginPath(); ctx.arc(ws.x, ws.y, 70 - 40 * k, 0, 6.283); ctx.stroke(); ctx.restore();
+      }
+    }
+    const w = CR.wellAt(world, t); if (!w) return;
+    const ws = CR.wellState(w, t), s = ws.s, x = ws.x, y = ws.y, R = CR.WELL_CORE, lite = lowGfx();
+    if (s <= 0) return;
+    ctx.save();
+    // pull field
+    const glow = ctx.createRadialGradient(x, y, R, x, y, 150 * s + 20);
+    glow.addColorStop(0, `rgba(176,123,255,${.42 * s})`); glow.addColorStop(.45, `rgba(120,60,200,${.16 * s})`); glow.addColorStop(1, "rgba(60,20,120,0)");
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, 150 * s + 20, 0, 6.283); ctx.fill();
+    // infalling streaks spiral inward
+    ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round";
+    const n = lite ? 10 : 26;
+    for (let i = 0; i < n; i++) {
+      const life = ((i * 53 + t * 1.3) % 120) / 120, rr = (R + 4) + (1 - life) * 130 * s, a = i * 2.399 + life * 3.2 + t * 0.01;
+      const a2 = a - 0.35, rr2 = rr + 14;
+      ctx.strokeStyle = i % 3 ? `rgba(197,139,255,${.55 * life * s})` : `rgba(255,214,150,${.6 * life * s})`; ctx.lineWidth = 1 + life * 1.5;
+      ctx.beginPath(); ctx.moveTo(x + Math.cos(a2) * rr2, y + Math.sin(a2) * rr2 * .7); ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * .7); ctx.stroke();
+    }
+    // accretion disk (back half, then core, then front half)
+    const tilt = -0.25, dR = (R * 2.6) * (0.6 + 0.4 * s);
+    const disk = (from, to) => {
+      for (let k = 0; k < 3; k++) {
+        ctx.strokeStyle = k === 0 ? `rgba(255,170,90,${.75 * s})` : k === 1 ? `rgba(255,236,200,${.6 * s})` : `rgba(197,139,255,${.55 * s})`;
+        ctx.lineWidth = 5 - k * 1.4; ctx.setLineDash([14 + k * 6, 6 + k * 3]); ctx.lineDashOffset = -t * (2.4 - k * .5);
+        ctx.beginPath(); ctx.ellipse(x, y, dR + k * 7, (dR + k * 7) * .32, tilt, from, to); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    };
+    disk(Math.PI, 2 * Math.PI);
+    ctx.globalCompositeOperation = "source-over";
+    const core = ctx.createRadialGradient(x, y, 0, x, y, R * 1.35);
+    core.addColorStop(0, "#000"); core.addColorStop(.72, "#000"); core.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = core; ctx.beginPath(); ctx.arc(x, y, R * 1.35, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,${.85 * s})`; ctx.lineWidth = 1.6; ctx.shadowColor = "#c58bff"; ctx.shadowBlur = lite ? 0 : 14;
+    ctx.beginPath(); ctx.arc(x, y, R + 1, 0, 6.283); ctx.stroke(); ctx.shadowBlur = 0;
+    ctx.globalCompositeOperation = "lighter";
+    disk(0, Math.PI);
+    ctx.restore();
+    // a faint tether shows the tug on your ship
+    if (me && me.alive) {
+      const d = Math.hypot(x - me.x, y - me.y);
+      if (d < CR.WELL_RANGE) {
+        const k = (1 - d / CR.WELL_RANGE) * s;
+        ctx.save(); ctx.strokeStyle = `rgba(197,139,255,${.45 * k})`; ctx.lineWidth = 1.5; ctx.setLineDash([2, 7]); ctx.lineDashOffset = t * 1.5;
+        ctx.beginPath(); ctx.moveTo(me.x, me.y); ctx.lineTo(x, y); ctx.stroke(); ctx.restore();
+      }
+    }
+  }
   function drawCores(list, t) {
     for (const a of list) {
       const r = a.r * (1 + Math.sin(t * 0.18 + a.c.id) * 0.1);
@@ -2530,7 +3084,7 @@ button.lk { cursor: pointer; }
     ctx.setTransform(sx, 0, 0, sy, 0, 0);
     const playing = state === "play" || state === "dying" || state === "over" || state === "paused" || state === "countdown";
     const t = me && playing ? me.t : 0;
-    if (theme) TH.drawBackground(ctx, bgT, theme);
+    if (theme) TH.drawBackground(ctx, bgT, theme, lowGfx());
     else { ctx.fillStyle = "#070a1a"; ctx.fillRect(0, 0, W, H); }
     if (playing && world) {
       const ev = world.events.find(e => t >= e.t - 20 && t < e.t + e.dur && !CR.eventHidden(world, e));
@@ -2541,7 +3095,7 @@ button.lk { cursor: pointer; }
         ctx.fillStyle = eg; ctx.fillRect(0, 0, W, H);
       }
     }
-    if (shake > 0) ctx.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
+    if (shake > 0) { const sk = calm() ? shake * 0.2 : shake; ctx.translate((Math.random() - .5) * sk, (Math.random() - .5) * sk); }
     const speed = state === "play" ? 1 + t / 1800 : 0.4;
     bgT += speed;
     for (const d of DUST) {
@@ -2561,6 +3115,7 @@ button.lk { cursor: pointer; }
         ctx.fillStyle = "#ff4f62"; ctx.font = "700 20px 'Chakra Petch', sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", it.x, 78);
       }
     }
+    if (playing) drawWell(t);
     for (const a of CR.active(world, vt)) {
       const k = a.it.kind;
       if (k === "rock") { if (!(playing && (me.smashed.has(a.it.id) || (shattered.has(a.it.id) && me.inv > 0)))) drawMeteor(a, vt); }
@@ -2586,6 +3141,19 @@ button.lk { cursor: pointer; }
         ctx.strokeStyle = "rgba(79,224,207,.6)"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(ghost.path[ghost.path.length - 1], SHIP_Y, (t - ghost.path.length) * 1.2 + 6, 0, 6.28); ctx.stroke();
       }
+      if (pbLive) {
+        const n = pbLive.xs.length;
+        if (t < n - 1) {
+          const x = pbLive.xs[t], y = pbLive.ys[t], px = t > 0 ? pbLive.xs[t - 1] : x;
+          pbLive.roll += (Math.max(-0.7, Math.min(0.7, (x - px) * 0.09)) - pbLive.roll) * 0.18;
+          drawShip(x, y, PB_COL, PB_COL, 0.42, false, t, 1, pbLive.roll);
+          ctx.save(); ctx.globalAlpha = .8; ctx.fillStyle = PB_COL; ctx.font = "700 9px 'Chakra Petch', sans-serif"; ctx.textAlign = "center";
+          ctx.fillText("BEST", x, y + 32); ctx.restore();
+        } else if (t < n + 40) {
+          ctx.strokeStyle = "rgba(197,139,255,.6)"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(pbLive.xs[n - 1], pbLive.ys[n - 1], (t - n) * 1.2 + 6, 0, 6.28); ctx.stroke();
+        }
+      }
       if (me.alive) {
         if (me.magnet > 0) {
           magnetSpin += 0.08;
@@ -2608,15 +3176,13 @@ button.lk { cursor: pointer; }
     }
     drawShots(shots, t);
     if (chunks.length) drawChunks();
-    for (const g of rings) { ctx.strokeStyle = `rgba(255,255,255,${1 - g.r / g.max})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(g.x, g.y, Math.max(0, g.r), 0, 6.28); ctx.stroke(); }
-    for (const p of particles) { const s = p.s || 3; ctx.globalAlpha = Math.max(0, p.life / 50); ctx.fillStyle = p.color; ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s); }
-    ctx.globalAlpha = 1;
+    fxDrawRings(ctx, rings); fxDrawParticles(ctx, particles); fxDrawBooms(ctx, booms);
     for (const f of floaters) { ctx.globalAlpha = Math.max(0, 1 - f.t / 45); ctx.fillStyle = f.color; ctx.font = `700 ${f.size}px 'Chakra Petch', sans-serif`; ctx.textAlign = "center"; ctx.fillText(f.text, f.x, f.y - f.t * 0.8); }
     ctx.globalAlpha = 1;
-    if (flash && flash.a > 0) { ctx.fillStyle = `rgba(${flash.c},${flash.a * 0.5})`; ctx.fillRect(-20, -20, W + 40, H + 40); }
+    if (flash && flash.a > 0) { ctx.fillStyle = `rgba(${flash.c},${flash.a * (calm() ? 0.18 : 0.5)})`; ctx.fillRect(-20, -20, W + 40, H + 40); }
     ctx.setTransform(sx, 0, 0, sy, 0, 0);
     if (playing && me) { drawSlowMo(); if (me.alive) drawComboGlow(t); }
-    if (playing && theme) TH.glitch(ctx, cv, t, theme);
+    if (playing && theme && !lowGfx() && !calm()) TH.glitch(ctx, cv, t, theme);
     ctx.setTransform(sx, 0, 0, sy, 0, 0);
     if (playing) { hud(t); tutDraw(t); }
     if (playing && theme && t < 150) drawIntro(t);
@@ -2651,6 +3217,11 @@ button.lk { cursor: pointer; }
     ctx.textAlign = "right"; ctx.font = "600 11px 'Chakra Petch', sans-serif";
     ctx.fillStyle = t >= ghost.t || lead >= 0 ? "#4fe0cf" : "#ff7a3d";
     ctx.fillText(t >= ghost.t ? `GHOST ${world.partner[0]} OUT` : `GHOST ${world.partner[0]} ${lead >= 0 ? "+" : "−"}${Math.abs(lead).toLocaleString()}`, W - 14, 46);
+    if (pbLive) {
+      const pd = me.score - pbLive.scores[Math.min(t, pbLive.scores.length - 1)];
+      ctx.textAlign = "left"; ctx.fillStyle = pd >= 0 ? "#4fe0cf" : PB_COL;
+      ctx.fillText(`BEST ${pd >= 0 ? "+" : "−"}${Math.abs(pd).toLocaleString()}`, me.mult < 5 ? 62 : 14, 46);
+    }
   }
 
   // ---------- loop ----------
@@ -2675,16 +3246,28 @@ button.lk { cursor: pointer; }
     if (me) comboGlow += ((me.alive && me.mult > 1 ? (me.mult - 1) / 4 : 0) - comboGlow) * 0.12;
     if (nearRing && ++nearRing.t > 22) nearRing = null;
     if (!frozen) stepChunks();
-    for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vx *= .96; p.vy *= .96; p.life--; }
+    for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vx *= .96; p.vy = p.vy * .96 + (p.g || 0); p.life--; }
     particles = particles.filter(p => p.life > 0);
+    { const cap = lowGfx() ? 140 : 700; if (particles.length > cap) particles.splice(0, particles.length - cap); }
     for (const f of floaters) f.t++;
     floaters = floaters.filter(f => f.t < 45);
-    for (const g of rings) g.r += 7;
+    for (const g of rings) g.r += g.v || 7;
+    boomStep(GAME_FX);
     rings = rings.filter(g => g.r < g.max);
     shake *= .85; if (shake < .5) shake = 0;
     if (bossFlash > 0) bossFlash--;
     if (flash) { flash.a *= .88; if (flash.a < .02) flash = null; }
+    {
+      const run = me && (state === "play" || state === "countdown" || state === "dying");
+      MUSIC.want.on = !save.musicOff;
+      MUSIC.want.style = run ? (curLevel ? curLevel.w : theme ? theme.world : 0) : "menu";
+      MUSIC.want.boost = run ? Math.min(4, (sector || 1) - 1) : 0;
+      MUSIC.want.boss = !!(run && me.alive && bossNow(me.t));
+      MUSIC.want.dim = run && (slowMs > 0 || hitStopMs > 0);
+      MUSIC.want.paused = state === "paused";
+    }
     draw();
+    if (shopTab === "booms" && !$("#shop").hidden) drawBoomPreview();
     if (previewTheme && !$("#levels").hidden) { const pv = $("#lv-prev"); if (pv) drawPreview(pv, previewTheme); }
     requestAnimationFrame(frame);
   }
