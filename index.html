@@ -563,12 +563,15 @@ button.lk { cursor: pointer; }
   }
 
   function newRunner(cfg) {
-    cfg = Object.assign({ speed: 14, hit: SHIP_R, lives: 3, magnetT: MAGNET_T, novaR: NOVA_R, starMul: 1, keep: 0 }, cfg || {});
+    cfg = Object.assign({ speed: 14, hit: SHIP_R, lives: 3, magnetT: MAGNET_T, novaR: NOVA_R, starMul: 1, keep: 0, ability: null }, cfg || {});
     return { cfg, keep: cfg.keep, x: W / 2, y: SHIP_Y, lives: cfg.lives, inv: 0, stars: 0, got: new Set(), alive: true, t: 0, score: 0, bonus: 0,
       combo: 0, mult: 1, maxMult: 1, magnet: 0, smashed: new Set(), close: new Set(), hitIds: new Set(),
       nearDone: new Set(), near: 0, powers: 0, gates: 0, gateHit: new Set(), gateDone: new Set(), golds: 0,
-      bossHp: [], bossKill: [], bossHurt: [], cores: new Set(), coreCount: 0, bossesDown: 0, wells: 0, flares: 0 };
+      bossHp: [], bossKill: [], bossHurt: [], cores: new Set(), coreCount: 0, bossesDown: 0, wells: 0, flares: 0, siphons: 0 };
   }
+  /* Ship abilities (v25). siphon: every SIPHON_EVERY stars restores a shield. phase: hits leave you phased twice as long, close calls pay double. */
+  const SIPHON_EVERY = 15;
+  const invFor = r => r.cfg.ability === "phase" ? 150 : 75;
 
   /* One fixed step for a ship heading to targetX. Returns events for the screen to show. */
   const MIN_Y = H * 0.3, MAX_Y = H - SHIP_R - 18;
@@ -600,6 +603,10 @@ button.lk { cursor: pointer; }
           const pts = Math.round((it.gold ? 150 : 25) * r.mult * r.cfg.starMul);
           r.bonus += pts; if (it.gold) r.golds++;
           ev.push({ type: "star", x: a.x, y: a.y, pts, mult: r.mult, gold: it.gold });
+          if (r.cfg.ability === "siphon" && r.stars % SIPHON_EVERY === 0) {
+            const cap = Math.max(MAX_LIVES, r.cfg.lives + 1);
+            if (r.lives < cap) { r.lives++; r.siphons++; ev.push({ type: "siphon", x: r.x, y: r.y }); }
+          }
         }
       } else if (it.kind === "power") {
         if (d < it.r + r.cfg.hit + 6 && !r.got.has(it.id)) {
@@ -624,7 +631,7 @@ button.lk { cursor: pointer; }
           ev.push({ type: "gate", x: r.x, y: r.y - 34, pts: 50 * r.mult });
         }
         if (d < hitR && r.inv === 0) {
-          r.hitIds.add(it.id); r.lives--; r.inv = 75;
+          r.hitIds.add(it.id); r.lives--; r.inv = invFor(r);
           if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
           ev.push({ type: "hit", x: a.x, y: a.y });
           if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); break; }
@@ -632,8 +639,9 @@ button.lk { cursor: pointer; }
           r.close.add(it.id);
         }
         if (r.close.has(it.id) && !r.hitIds.has(it.id) && !r.nearDone.has(it.id) && a.y - it.r > r.y + SHIP_R) {
-          r.nearDone.add(it.id); r.near++; r.bonus += 10 * r.mult;
-          ev.push({ type: "near", x: r.x, y: r.y - 30, pts: 10 * r.mult });
+          const np = 10 * r.mult * (r.cfg.ability === "phase" ? 2 : 1);
+          r.nearDone.add(it.id); r.near++; r.bonus += np;
+          ev.push({ type: "near", x: r.x, y: r.y - 30, pts: np });
         }
       }
     }
@@ -659,7 +667,7 @@ button.lk { cursor: pointer; }
       if (r.inv === 0) for (const a of ba.shots) {
         if (r.bossKill[a.i] != null) continue;
         if (Math.hypot(a.x - r.x, a.y - r.y) >= a.r + r.cfg.hit * 0.5) continue;
-        r.bossHurt[a.i] = true; r.hitIds.add("boss" + r.t); r.lives--; r.inv = 75;
+        r.bossHurt[a.i] = true; r.hitIds.add("boss" + r.t); r.lives--; r.inv = invFor(r);
         if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
         ev.push({ type: "hit", x: a.x, y: a.y });
         if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); }
@@ -670,14 +678,14 @@ button.lk { cursor: pointer; }
       });
     }
     if (r.alive && wst && wst.s > 0.25 && r.inv === 0 && Math.hypot(wst.x - r.x, wst.y - r.y) < WELL_CORE + r.cfg.hit * 0.5) {
-      r.hitIds.add("well" + r.t); r.lives--; r.inv = 75;
+      r.hitIds.add("well" + r.t); r.lives--; r.inv = invFor(r);
       if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
       ev.push({ type: "hit", x: wst.x, y: wst.y, well: true });
       if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); }
     }
     if (r.alive && r.inv === 0 && world.flaresLive && world.flaresLive.length) for (const a of beamsAt(world, r.t)) {
       if (!a.live || Math.abs(r.x - a.x) >= a.hw + r.cfg.hit * 0.5) continue;
-      r.hitIds.add("flare" + r.t); r.lives--; r.inv = 75;
+      r.hitIds.add("flare" + r.t); r.lives--; r.inv = invFor(r);
       if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
       ev.push({ type: "hit", x: a.x, y: r.y, flare: true });
       if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); }
@@ -773,7 +781,9 @@ button.lk { cursor: pointer; }
     { id: "ember", name: "Ember", cost: 60, body: "#ff6b4a", flame: "#ffd166", speed: 17, hit: 13, lives: 3, desc: "Fastest ship in the fleet" },
     { id: "aurora", name: "Aurora", cost: 180, body: "#7cf3a0", flame: "#4fb8ff", speed: 14, hit: 10.5, lives: 3, desc: "Tiny frame, slips through gaps" },
     { id: "nebula", name: "Nebula", cost: 400, body: "#ff7ad9", flame: "#9b7bff", speed: 13, hit: 13, lives: 4, desc: "Heavy armor, starts with 4 shields" },
-    { id: "void", name: "Void", cost: 800, body: "#f4f1ff", flame: "#a26bff", speed: 16, hit: 11, lives: 4, desc: "Fast, small and armored" }
+    { id: "halo", name: "Halo", cost: 500, body: "#9fe8ff", flame: "#ffe08a", speed: 14, hit: 13, lives: 3, ability: "siphon", desc: "Star Siphon: every 15 stars restores a shield" },
+    { id: "void", name: "Void", cost: 800, body: "#f4f1ff", flame: "#a26bff", speed: 16, hit: 11, lives: 4, desc: "Fast, small and armored" },
+    { id: "phantom", name: "Phantom", cost: 1100, body: "#b9a6ff", flame: "#4fe0cf", speed: 15, hit: 12, lives: 3, ability: "phase", desc: "Phase Shift: phases out twice as long after a hit. Close calls pay double" }
   ];
 
   /* Turn a ship + upgrade levels into run settings. Shared by the game and the server so both score the same. */
@@ -781,7 +791,7 @@ button.lk { cursor: pointer; }
   function loadoutCfg(shipId, up) {
     const s = SKINS.find(x => x.id === shipId) || SKINS[0];
     const lv = k => { const v = up && up[k]; return Number.isInteger(v) ? Math.max(0, Math.min(5, v)) : 0; };
-    return { ship: s.id, speed: s.speed, hit: s.hit, lives: s.lives, magnetT: MAGNET_T + lv("magnet") * 90,
+    return { ship: s.id, ability: s.ability || null, speed: s.speed, hit: s.hit, lives: s.lives, magnetT: MAGNET_T + lv("magnet") * 90,
       novaR: NOVA_R + lv("nova") * 25, starMul: 1 + lv("value") * 0.1, keep: lv("guard") };
   }
 
@@ -803,7 +813,7 @@ button.lk { cursor: pointer; }
     recordGhost, missions, SKINS, fmtTime, loadoutCfg, replay, MAX_T,
     bossPos, bossActive, setBosses, hiddenAt, eventHidden, BOSS_WARN, BOSS_HP,
     setWells, wellAt, wellState, WELL_CORE, WELL_RANGE,
-    setFlares, beamsAt, BEAM_WARN, BEAM_FIRE, FLARE_LEN };
+    setFlares, beamsAt, BEAM_WARN, BEAM_FIRE, FLARE_LEN, SIPHON_EVERY };
 })(typeof module !== "undefined" ? module.exports : window);
 
 </script>
@@ -815,6 +825,7 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 25, date: "2026-11-07", notes: ["Two new ships with special abilities, each with its own 3D body", "Halo: a ring-winged cruiser. Star Siphon restores a shield every 15 stars you catch", "Phantom: a stealth wing. Phase Shift keeps you phased twice as long after a hit, and close calls pay double", "Find them in the Hangar. Halo unlocks at Pilot Lv 6, Phantom at Lv 13"] },
     { v: 24, date: "2026-11-06", notes: ["New event: Solar Flares! The sun erupts and fires heat beams straight down the screen", "Each beam is marked with an orange column for a full second before it burns. Slide out of the way", "Ride out the flare for +100. Later flares fire two beams at once", "New trophy: Flare Dancer. Flares appear in daily runs and from the Prism Rings world on"] },
     { v: 23, date: "2026-11-05", notes: ["New in the Shop: Booms! Pick how your ship explodes when it goes down", "Six effects: Pixel Pop, Fireworks, Shockwave, Glitch Out, Singularity and Prism Nova", "Tap ▶ to watch any effect before you buy. Fixed coin prices, looks only", "Your explosions show up in the Locker too"] },
     { v: 22, date: "2026-11-04", notes: ["New event: Black Holes! A swirling gravity well opens mid-run", "It bends the paths of meteors and stars, swallows anything that drifts into it, and tugs on your ship", "Don't touch the core. Ride it out for +100", "New trophy: Event Horizon. Black holes appear in daily runs and from the Red Circuit world on"] },
@@ -1413,30 +1424,57 @@ button.lk { cursor: pointer; }
   function makeShip3D() {
     const P = (x, y, z) => [x, y, z];
     const mir = p => [-p[0], p[1], p[2]];
-    // model space: x right, y forward (nose = +y), z up toward the camera
-    const N = P(0, 1.0, 0.03);
-    const F1 = P(0, 0.45, 0.2), F2 = P(0, -0.2, 0.25), F3 = P(0, -0.66, 0.15);
-    const S1 = P(-0.13, 0.45, 0.04), S2 = P(-0.21, -0.2, 0.05), S3 = P(-0.17, -0.66, 0.04);
-    const U1 = P(0, 0.4, -0.08), U2 = P(0, -0.2, -0.12), U3 = P(0, -0.66, -0.08);
-    const C0 = P(0, 0.66, 0.13), C1 = P(-0.085, 0.36, 0.2), C2 = P(0, 0.2, 0.33), C3 = P(-0.075, 0.02, 0.24), C4 = P(0, -0.08, 0.27);
-    const WR1 = P(-0.17, 0.14, 0.06), WM = P(-0.47, -0.24, 0.1), WT1 = P(-0.88, -0.36, 0.0), WT2 = P(-0.92, -0.54, 0.0), WR2 = P(-0.2, -0.5, 0.05);
-    const FB1 = P(-0.12, -0.36, 0.17), FB2 = P(-0.14, -0.64, 0.13), FT = P(-0.27, -0.68, 0.44);
-    const E1 = P(-0.07, -0.44, 0.15), E2 = P(-0.2, -0.44, 0.15), E3 = P(-0.07, -0.76, 0.14), E4 = P(-0.2, -0.76, 0.14), E5 = P(-0.22, -0.76, 0.02), E6 = P(-0.22, -0.44, 0.02);
-    const faces = [];
-    const add = (pts, mat) => { faces.push({ pts, mat }); faces.push({ pts: pts.map(mir), mat }); };
-    // hull
-    add([N, F1, S1], "hull"); add([F1, F2, S2, S1], "hull"); add([F2, F3, S3, S2], "dark");
-    add([N, S1, U1], "under"); add([S1, S2, U2, U1], "under"); add([S2, S3, U3, U2], "under");
-    // canopy
-    add([C0, C1, C2], "glass"); add([C1, C3, C2], "glass"); add([C3, C4, C2], "glassD");
-    // wings: front facets in hull color, rear facets in gunmetal (two-tone livery)
-    add([WR1, WM, WT1], "hull"); add([WM, WT2, WT1], "metal"); add([WR1, WR2, WM], "metal"); add([WR2, WT2, WM], "dark");
-    // tail fins
-    add([FB1, FB2, FT], "fin");
-    // engine pods
-    add([E1, E2, E4, E3], "metal"); add([E2, E6, E5, E4], "dark");
-    const NOZ = [P(-0.135, -0.77, 0.08), P(0.135, -0.77, 0.08)];
-    const TIPS = [WT2, mir(WT2)];
+    /* Each ship model: faces (left half, mirrored), engine nozzles, wingtip light spots, canopy streak ends. */
+    function builder() { const faces = []; return { faces, add: (pts, mat) => { faces.push({ pts, mat }); faces.push({ pts: pts.map(mir), mat }); } }; }
+    const MODELS = {};
+    { // fighter: Comet, Ember, Aurora, Nebula, Void
+      const { faces, add } = builder();
+      // model space: x right, y forward (nose = +y), z up toward the camera
+      const N = P(0, 1.0, 0.03);
+      const F1 = P(0, 0.45, 0.2), F2 = P(0, -0.2, 0.25), F3 = P(0, -0.66, 0.15);
+      const S1 = P(-0.13, 0.45, 0.04), S2 = P(-0.21, -0.2, 0.05), S3 = P(-0.17, -0.66, 0.04);
+      const U1 = P(0, 0.4, -0.08), U2 = P(0, -0.2, -0.12), U3 = P(0, -0.66, -0.08);
+      const C0 = P(0, 0.66, 0.13), C1 = P(-0.085, 0.36, 0.2), C2 = P(0, 0.2, 0.33), C3 = P(-0.075, 0.02, 0.24), C4 = P(0, -0.08, 0.27);
+      const WR1 = P(-0.17, 0.14, 0.06), WM = P(-0.47, -0.24, 0.1), WT1 = P(-0.88, -0.36, 0.0), WT2 = P(-0.92, -0.54, 0.0), WR2 = P(-0.2, -0.5, 0.05);
+      const FB1 = P(-0.12, -0.36, 0.17), FB2 = P(-0.14, -0.64, 0.13), FT = P(-0.27, -0.68, 0.44);
+      const E1 = P(-0.07, -0.44, 0.15), E2 = P(-0.2, -0.44, 0.15), E3 = P(-0.07, -0.76, 0.14), E4 = P(-0.2, -0.76, 0.14), E5 = P(-0.22, -0.76, 0.02), E6 = P(-0.22, -0.44, 0.02);
+      add([N, F1, S1], "hull"); add([F1, F2, S2, S1], "hull"); add([F2, F3, S3, S2], "dark");
+      add([N, S1, U1], "under"); add([S1, S2, U2, U1], "under"); add([S2, S3, U3, U2], "under");
+      add([C0, C1, C2], "glass"); add([C1, C3, C2], "glass"); add([C3, C4, C2], "glassD");
+      add([WR1, WM, WT1], "hull"); add([WM, WT2, WT1], "metal"); add([WR1, WR2, WM], "metal"); add([WR2, WT2, WM], "dark");
+      add([FB1, FB2, FT], "fin");
+      add([E1, E2, E4, E3], "metal"); add([E2, E6, E5, E4], "dark");
+      MODELS.fighter = { faces, NOZ: [P(-0.135, -0.77, 0.08), P(0.135, -0.77, 0.08)], TIPS: [WT2, mir(WT2)], C0, C4 };
+    }
+    { // halo: a short pod inside a ring wing, joined by struts
+      const { faces, add } = builder();
+      const N = P(0, 0.72, 0.03), T1 = P(0, 0.3, 0.24), T2 = P(0, -0.32, 0.22), B = P(0, -0.56, 0.1);
+      const S1 = P(-0.16, 0.3, 0.05), S2 = P(-0.19, -0.32, 0.05), U1 = P(0, 0.3, -0.1), U2 = P(0, -0.32, -0.1);
+      const C0 = P(0, 0.56, 0.12), C1 = P(-0.075, 0.33, 0.2), C2 = P(0, 0.18, 0.31), C3 = P(-0.065, 0.02, 0.24), C4 = P(0, -0.06, 0.25);
+      add([N, T1, S1], "hull"); add([T1, T2, S2, S1], "hull"); add([T2, B, S2], "dark");
+      add([N, S1, U1], "under"); add([S1, S2, U2, U1], "under"); add([S2, B, U2], "under");
+      add([C0, C1, C2], "glass"); add([C1, C3, C2], "glass"); add([C3, C4, C2], "glassD");
+      const cy = -0.08, RO = 0.8, RI = 0.62, seg = 7, ring = (a, R, z) => P(Math.cos(a) * R, cy + Math.sin(a) * R * 0.92, z);
+      for (let i = 0; i < seg; i++) {
+        const a0 = Math.PI / 2 + i / seg * Math.PI, a1 = Math.PI / 2 + (i + 1) / seg * Math.PI;
+        add([ring(a0, RO, 0.07), ring(a1, RO, 0.07), ring(a1, RI, 0.09), ring(a0, RI, 0.09)], i % 2 ? "metal" : "hull");
+        add([ring(a0, RO, 0.07), ring(a1, RO, 0.07), ring(a1, RO + 0.02, -0.05), ring(a0, RO + 0.02, -0.05)], "dark");
+      }
+      add([P(-0.17, 0.02, 0.07), P(-0.61, 0.02, 0.09), P(-0.61, -0.16, 0.09), P(-0.18, -0.2, 0.07)], "metal");
+      add([P(-0.14, -0.4, 0.14), P(-0.12, -0.6, 0.11), P(-0.2, -0.62, 0.32)], "fin");
+      MODELS.halo = { faces, NOZ: [P(-0.07, -0.58, 0.1), P(0.07, -0.58, 0.1)], TIPS: [ring(Math.PI, RO + 0.01, 0.08), mir(ring(Math.PI, RO + 0.01, 0.08))], C0, C4 };
+    }
+    { // phantom: a flat stealth flying wing with a notched trailing edge
+      const { faces, add } = builder();
+      const N = P(0, 1.0, 0.04), R1 = P(0, 0.3, 0.17), R2 = P(0, -0.4, 0.13), TC = P(0, -0.58, 0.06);
+      const L1 = P(-0.34, 0.12, 0.05), WT = P(-0.96, -0.5, 0.0), TE1 = P(-0.56, -0.64, 0.02), TE2 = P(-0.26, -0.46, 0.05), U = P(0, -0.05, -0.08);
+      const C0 = P(0, 0.62, 0.1), C1 = P(-0.06, 0.42, 0.16), C2 = P(0, 0.32, 0.22), C3 = P(-0.05, 0.17, 0.18), C4 = P(0, 0.1, 0.18);
+      add([N, R1, L1], "hull"); add([R1, R2, TE2, L1], "dark"); add([L1, TE1, WT], "hull"); add([L1, TE2, TE1], "metal"); add([R2, TC, TE2], "dark");
+      add([N, L1, U], "under"); add([L1, WT, U], "under"); add([WT, TE1, TE2, U], "under"); add([TE2, TC, U], "under");
+      add([C0, C1, C2], "glass"); add([C1, C3, C2], "glass"); add([C3, C4, C2], "glassD");
+      add([P(-0.3, -0.3, 0.07), P(-0.34, -0.5, 0.05), P(-0.44, -0.56, 0.3)], "fin");
+      MODELS.phantom = { faces, NOZ: [P(-0.08, -0.56, 0.07), P(0.08, -0.56, 0.07)], TIPS: [WT, mir(WT)], C0, C4 };
+    }
 
     const L = (() => { const v = [-0.45, 0.5, 0.74], n = Math.hypot(...v); return v.map(c => c / n); })();
     const Hh = (() => { const v = [L[0], L[1], L[2] + 1], n = Math.hypot(...v); return v.map(c => c / n); })();
@@ -1465,7 +1503,8 @@ button.lk { cursor: pointer; }
       const S = 21 * (o.scale || 1), roll = o.roll || 0, pitch = -0.45;
       const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
       const base = rgb(o.body), metal = [128, 138, 168], glassC = [70, 170, 230];
-      const proj = faces.map(f => {
+      const Mo = MODELS[o.model] || MODELS.fighter, NOZ = Mo.NOZ, TIPS = Mo.TIPS, C0 = Mo.C0, C4 = Mo.C4;
+      const proj = Mo.faces.map(f => {
         const q = f.pts.map(p => transform(p, cr, sr, cp, sp));
         const a = q[0], b = q[1], c = q[2];
         const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
@@ -1530,15 +1569,15 @@ button.lk { cursor: pointer; }
 
     /* Small still image of the ship in a given paint, for menus (cached). */
     const icons = new Map();
-    function icon(body, flame) {
-      const key = body + flame;
+    function icon(body, flame, model) {
+      const key = body + flame + (model || "");
       if (icons.has(key)) return icons.get(key);
       const c = document.createElement("canvas"); c.width = c.height = 120;
       const g = c.getContext("2d"); g.scale(2, 2);
-      draw(g, 30, 28, { body, flame, roll: -0.35, t: 10, scale: 1.25, thrust: true, lights: true });
+      draw(g, 30, 28, { body, flame, model, roll: -0.35, t: 10, scale: 1.25, thrust: true, lights: true });
       const url = c.toDataURL(); icons.set(key, url); return url;
     }
-    return { draw, icon };
+    return { draw, icon, model: id => MODELS[id] ? id : "fighter" };
   }
 
   const SHIP3D = makeShip3D();
@@ -1555,7 +1594,7 @@ button.lk { cursor: pointer; }
   save.set = Object.assign({ haptics: true, motion: "auto", gap: "normal", hand: "center", gfx: "high" }, save.set && typeof save.set === "object" ? save.set : {});
   const lowGfx = () => save.set.gfx === "low";
   save.xp = save.xp || 0; save.pilot = save.pilot || 1;
-  const SHIP_RANK = { comet: 1, ember: 2, aurora: 4, nebula: 7, void: 10 };
+  const SHIP_RANK = { comet: 1, ember: 2, aurora: 4, nebula: 7, halo: 6, void: 10, phantom: 13 };
   const TRAIL_RANK = { none: 1, sparks: 3, rainbow: 5, plasma: 8, stardust: 12 };
   save.up = Object.assign({ magnet: 0, guard: 0, value: 0, nova: 0 }, save.up || {});
   const UPGRADES = [
@@ -1818,7 +1857,7 @@ button.lk { cursor: pointer; }
       CR.step(w, r, tx, r.cfg.speed, ty); wait--;
       xs.push(r.x); ys.push(r.y); sc.push(r.score);
     }
-    pbRun = { key, xs, ys, scores: sc, t: r.t, score: r.score, roll: 0 };
+    pbRun = { key, xs, ys, scores: sc, t: r.t, score: r.score, roll: 0, model: SHIP3D.model(pb.cfg && pb.cfg.ship) };
     return pbRun;
   }
   function pbSave() {
@@ -1879,7 +1918,7 @@ button.lk { cursor: pointer; }
     const s = skin(), tr = TRAILS.find(x => x.id === save.trail) || TRAILS[0];
     const lv = Object.values(save.up).reduce((a, b) => a + b, 0);
     return `<div class="panel"><div class="panel-h"><span>Your loadout</span><span>${lv}/20 upgrades</span></div>
-      <button class="card" id="open-hangar" style="--c:${s.body}" aria-label="Open hangar"><img class="shipimg" alt="" src="${SHIP3D.icon(shipLook().body[0] === "#" ? shipLook().body : s.body, shipLook().flame)}"><span class="meta"><h3>${s.name}</h3><p>${s.desc} · ${tr.name}</p></span><span class="buy ghosted">Hangar</span></button></div>`;
+      <button class="card" id="open-hangar" style="--c:${s.body}" aria-label="Open hangar"><img class="shipimg" alt="" src="${SHIP3D.icon(shipLook().body[0] === "#" ? shipLook().body : s.body, shipLook().flame, SHIP3D.model(s.id))}"><span class="meta"><h3>${s.name}</h3><p>${s.desc} · ${tr.name}</p></span><span class="buy ghosted">Hangar</span></button></div>`;
   }
   const pct = (v, lo, hi) => Math.round(20 + 80 * Math.max(0, Math.min(1, (v - lo) / (hi - lo))));
   function openHangar() {
@@ -1892,7 +1931,7 @@ button.lk { cursor: pointer; }
       const own = save.owned.includes(s.id), eq = save.skin === s.id;
       const need = SHIP_RANK[s.id] || 1, gated = !own && save.pilot < need;
       const act = eq ? `<span class="buy eq">Equipped</span>` : own ? `<button class="buy ghosted" data-act="ship" data-id="${s.id}">Equip</button>` : gated ? `<button class="buy poor" data-act="ship" data-id="${s.id}">🔒 Lv ${need}</button>` : `<button class="buy ${save.coins < s.cost ? "poor" : ""}" data-act="ship" data-id="${s.id}">◉ ${s.cost}</button>`;
-      return `<div class="card ${eq ? "on" : ""} ${own ? "" : "locked"}" style="--c:${s.body}"><img class="shipimg" alt="" src="${SHIP3D.icon(s.body, s.flame)}"><div class="meta"><h3>${s.name}</h3><p>${s.desc}</p>
+      return `<div class="card ${eq ? "on" : ""} ${own ? "" : "locked"}" style="--c:${s.body}"><img class="shipimg" alt="" src="${SHIP3D.icon(s.body, s.flame, SHIP3D.model(s.id))}"><div class="meta"><h3>${s.name}${s.ability ? ` <span class="bdg">ABILITY</span>` : ""}</h3><p>${s.desc}</p>
         <div class="statrow"><span>Speed</span><span class="meter"><i style="width:${pct(s.speed, 12, 17)}%"></i></span></div>
         <div class="statrow"><span>Agility</span><span class="meter"><i style="width:${pct(13.5 - s.hit, 0, 3)}%"></i></span></div>
         <div class="statrow"><span>Shields</span><span class="meter"><i style="width:${s.lives * 25}%"></i></span></div></div>${act}</div>`;
@@ -2383,7 +2422,7 @@ button.lk { cursor: pointer; }
     pvT++;
     const cyc = pvT % 130, sx = W / 2 + Math.sin(pvT * 0.05) * 40;
     if (cyc === 40) fx.play(PV, sx, y, look.body);
-    if (cyc < 40) SHIP3D.draw(g, sx, y, { body: look.body, flame: look.flame, alpha: Math.min(1, cyc / 10), roll: -Math.cos(pvT * 0.05) * 0.4, t: pvT, scale: 1.1, thrust: true, lights: true });
+    if (cyc < 40) SHIP3D.draw(g, sx, y, { body: look.body, flame: look.flame, model: SHIP3D.model(skin().id), alpha: Math.min(1, cyc / 10), roll: -Math.cos(pvT * 0.05) * 0.4, t: pvT, scale: 1.1, thrust: true, lights: true });
     for (const p of PV.p) { p.x += p.vx; p.y += p.vy; p.vx *= .96; p.vy = p.vy * .96 + (p.g || 0); p.life--; }
     prune(PV.p, p => p.life > 0);
     for (const r of PV.r) r.r += r.v || 7;
@@ -2471,7 +2510,7 @@ button.lk { cursor: pointer; }
     g.save(); g.translate(fx, fy); g.rotate(side * 0.55);
     g.beginPath(); g.ellipse(0, 26, 15, 30, 0, 0, 6.283); g.fill(); g.stroke(); g.restore();
     g.setLineDash([3, 4]); g.beginPath(); g.moveTo(fx, fy - 6); g.lineTo(fx + dx, fy - lift + 12); g.stroke(); g.setLineDash([]);
-    SHIP3D.draw(g, fx + dx, Math.max(14, fy - lift), { body: shipLook().body, flame: shipLook().flame, roll: 0, t: 10, scale: 0.85, thrust: true, lights: true });
+    SHIP3D.draw(g, fx + dx, Math.max(14, fy - lift), { body: shipLook().body, flame: shipLook().flame, model: SHIP3D.model(skin().id), roll: 0, t: 10, scale: 0.85, thrust: true, lights: true });
   }
 
   // ---------- sizing ----------
@@ -2554,6 +2593,7 @@ button.lk { cursor: pointer; }
     if (save.trail === "sparks" && me.t % 2 === 0) particles.push({ x: me.x + (Math.random() - .5) * 8, y: me.y + 14, vx: (Math.random() - .5) * 1.2, vy: 2 + Math.random() * 2, life: 18 + Math.random() * 10, color: Math.random() < .5 ? "#ffcc4d" : "#ff7a3d" });
     for (const e of ev) {
       if (e.type === "survived") floaters.push({ x: W / 2, y: H * 0.42, t: 0, text: e.event === "well" ? "BLACK HOLE CLOSED +100" : e.event === "flare" ? "FLARE SURVIVED +100" : "SURVIVED +100", color: e.event === "well" ? "#c58bff" : e.event === "flare" ? "#ff9a4d" : "#4fe0cf", size: 18 });
+      if (e.type === "siphon") { floaters.push({ x: me.x, y: me.y - 44, t: 0, text: "SIPHON · SHIELD +1", color: "#5aa9ff", size: 15 }); flash = { c: "90,169,255", a: .3 }; rings.push({ x: me.x, y: me.y, r: 8, max: 70, c: "159,232,255", v: 4, w: 2 }); sfx.power(); vibrate(25); }
       if (e.type === "guard") { floaters.push({ x: me.x, y: me.y - 40, t: 0, text: "COMBO SAVED", color: "#ffcc4d", size: 15 }); }
       if (e.type === "gate") { floaters.push({ x: e.x, y: e.y, t: 0, text: "GATE +" + e.pts, color: "#8ca0ff", size: 17 }); sfx.power(); burst(e.x, e.y + 30, "#8ca0ff", 16); }
       if (e.type === "star" && e.gold) { burst(e.x, e.y, "#ffffff", 30); burst(e.x, e.y, "#ffcc4d", 30); shake = 8; flash = { c: "255,230,150", a: .4 }; sfx.best(); toast(`Golden star +${e.pts}`, true); }
@@ -2866,13 +2906,13 @@ button.lk { cursor: pointer; }
     for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; pts.push([Math.cos(a) * (0.75 + rnd() * 0.3), Math.sin(a) * (0.75 + rnd() * 0.3)]); }
     rocks.set(it.id, pts); return pts;
   }
-  function drawShip(x, y, body, flameC, alpha, flame, t, scale = 1, roll = 0) {
+  function drawShip(x, y, body, flameC, alpha, flame, t, scale = 1, roll = 0, model) {
     if (alpha >= 1) {
       const g = ctx.createRadialGradient(x, y, 2, x, y, 30 * scale);
       g.addColorStop(0, TH.hex(body[0] === "#" ? body : "#ffffff", .22)); g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g; ctx.fillRect(x - 32 * scale, y - 32 * scale, 64 * scale, 64 * scale);
     }
-    SHIP3D.draw(ctx, x, y, { body, flame: flameC, alpha, t, scale, roll, thrust: flame, lights: alpha >= 1, boost: me && me.mult > 2 ? me.mult * 2 : 0 });
+    SHIP3D.draw(ctx, x, y, { body, flame: flameC, model, alpha, t, scale, roll, thrust: flame, lights: alpha >= 1, boost: me && me.mult > 2 ? me.mult * 2 : 0 });
   }
   let previewTheme = null;
   /* Title card at the start of a run: label, theme name, and a light sweep. */
@@ -3257,7 +3297,7 @@ button.lk { cursor: pointer; }
         if (t < n - 1) {
           const x = pbLive.xs[t], y = pbLive.ys[t], px = t > 0 ? pbLive.xs[t - 1] : x;
           pbLive.roll += (Math.max(-0.7, Math.min(0.7, (x - px) * 0.09)) - pbLive.roll) * 0.18;
-          drawShip(x, y, PB_COL, PB_COL, 0.42, false, t, 1, pbLive.roll);
+          drawShip(x, y, PB_COL, PB_COL, 0.42, false, t, 1, pbLive.roll, pbLive.model);
           ctx.save(); ctx.globalAlpha = .8; ctx.fillStyle = PB_COL; ctx.font = "700 9px 'Chakra Petch', sans-serif"; ctx.textAlign = "center";
           ctx.fillText("BEST", x, y + 32); ctx.restore();
         } else if (t < n + 40) {
@@ -3282,7 +3322,13 @@ button.lk { cursor: pointer; }
         drawTrail(t);
         const vx = shipLastX == null ? 0 : me.x - shipLastX; shipLastX = me.x;
         shipRoll += (Math.max(-0.75, Math.min(0.75, vx * 0.09)) - shipRoll) * 0.18;
-        if (!(me.inv > 0 && Math.floor(me.inv / 5) % 2)) drawShip(me.x, me.y, shipLook().body, shipLook().flame, 1, true, t, Math.max(.8, me.cfg.hit / SHIP_R), shipRoll);
+        const mdl = SHIP3D.model(me.cfg.ship), sc3 = Math.max(.8, me.cfg.hit / SHIP_R);
+        if (me.cfg.ability === "phase" && me.inv > 0) {
+          /* Phase Shift: the ship turns translucent with a cyan shimmer instead of blinking */
+          ctx.save(); ctx.strokeStyle = `rgba(79,224,207,${.3 + .25 * Math.sin(t * .3)})`; ctx.lineWidth = 1.5; ctx.setLineDash([4, 5]); ctx.lineDashOffset = t * .8;
+          ctx.beginPath(); ctx.arc(me.x, me.y, 24, 0, 6.283); ctx.stroke(); ctx.restore();
+          drawShip(me.x + (calm() ? 0 : Math.sin(t * .7) * 1.5), me.y, shipLook().body, shipLook().flame, .45, true, t, sc3, shipRoll, mdl);
+        } else if (!(me.inv > 0 && Math.floor(me.inv / 5) % 2)) drawShip(me.x, me.y, shipLook().body, shipLook().flame, 1, true, t, sc3, shipRoll, mdl);
       }
     }
     drawShots(shots, t);
@@ -3321,6 +3367,11 @@ button.lk { cursor: pointer; }
       ctx.fillStyle = i < me.lives ? (i >= 3 ? "#5aa9ff" : "#ffcc4d") : "rgba(141,147,191,.35)";
       const x = W - 16 - i * 20, y = 22;
       ctx.beginPath(); ctx.moveTo(x, y - 8); ctx.lineTo(x + 7, y - 4); ctx.lineTo(x + 5, y + 5); ctx.lineTo(x, y + 9); ctx.lineTo(x - 5, y + 5); ctx.lineTo(x - 7, y - 4); ctx.closePath(); ctx.fill();
+    }
+    if (me.cfg.ability === "siphon") {
+      const k = (me.stars % CR.SIPHON_EVERY) / CR.SIPHON_EVERY, x1 = W - 9, x0 = W - 16 - 2 * 20 - 7;
+      ctx.fillStyle = "rgba(141,147,191,.3)"; ctx.fillRect(x0, 34, x1 - x0, 3);
+      ctx.fillStyle = "#9fe8ff"; ctx.fillRect(x0, 34, (x1 - x0) * k, 3);
     }
     bossHud(t);
     if (curLevel) return levelHud(t);
