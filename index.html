@@ -359,7 +359,45 @@ button.lk { cursor: pointer; }
     }
     const world = { seed: String(seed), items, events, partner: PARTNERS[Math.floor(rng() * PARTNERS.length)] };
     setBosses(world, DAILY_BOSSES);
-    return setWells(world, DAILY_WELLS);
+    setWells(world, DAILY_WELLS);
+    return setFlares(world, DAILY_FLARES);
+  }
+
+  /* ---------- Solar flares (v24): the sun flares for a few seconds and fires vertical heat beams down the screen.
+     Each beam is marked for a full second (BEAM_WARN) before it burns (BEAM_FIRE). Own rng, so the course is unchanged. ---------- */
+  const FLARE_LEN = TPS * 6, BEAM_WARN = 60, BEAM_FIRE = 30, BEAM_HW = 26, BEAM_EVERY = 55;
+  const DAILY_FLARES = [55, 132, 177].map(s => TPS * s);
+  /** Replace a world's solar flares. starts: ticks. Flares that overlap a boss or a black hole are dropped. */
+  function setFlares(world, starts) {
+    const rng = mulberry32(hashStr(world.seed + ":flare"));
+    world.flares = (starts || []).map((t, i) => {
+      const beams = [];
+      for (let k = 0; k * BEAM_EVERY + BEAM_WARN + BEAM_FIRE <= FLARE_LEN - 20; k++) {
+        const n = i >= 1 && k % 2 === 1 ? 2 : 1, xs = [];
+        for (let q = 0; q < n; q++) {
+          let x = 40 + rng() * (W - 80);
+          for (let tries = 0; tries < 20 && xs.some(o => Math.abs(o - x) < 130); tries++) x = 40 + rng() * (W - 80);
+          xs.push(x);
+        }
+        for (const x of xs) beams.push({ t: t + k * BEAM_EVERY, x, hw: BEAM_HW });
+      }
+      return { id: i, t, dur: FLARE_LEN, beams };
+    });
+    return refreshFlares(world);
+  }
+  function refreshFlares(world) {
+    const wl = world.wellsLive || [];
+    world.flaresLive = (world.flares || []).filter(f => !eventHidden(world, f) && !wl.some(w => w.t < f.t + f.dur && w.t + w.dur > f.t));
+    return world;
+  }
+  /** Beams on screen at tick t: k = ticks since marked, live = burning now. */
+  function beamsAt(world, t) {
+    const out = [];
+    if (world.flaresLive) for (const f of world.flaresLive) {
+      if (t < f.t || t >= f.t + f.dur) continue;
+      for (const b of f.beams) { const k = t - b.t; if (k >= 0 && k < BEAM_WARN + BEAM_FIRE) out.push({ b, x: b.x, hw: b.hw, k, live: k >= BEAM_WARN }); }
+    }
+    return out;
   }
 
   /* ---------- Black holes (v22): a gravity well opens between events. It bends the paths of everything falling
@@ -389,6 +427,7 @@ button.lk { cursor: pointer; }
         }
       }
     }
+    if (world.flares) refreshFlares(world);
     return world;
   }
   function wellAt(world, t) {
@@ -464,6 +503,7 @@ button.lk { cursor: pointer; }
     world.bosses = (specs || []).map((s, i) => buildBoss(world.seed, i, s));
     world.hide = world.bosses.map(b => [b.t0 - BOSS_WARN, b.t0 + b.dur]);
     if (world.wells) refreshWells(world);
+    if (world.flares) refreshFlares(world);
     return world;
   }
   function hiddenAt(world, t) {
@@ -527,7 +567,7 @@ button.lk { cursor: pointer; }
     return { cfg, keep: cfg.keep, x: W / 2, y: SHIP_Y, lives: cfg.lives, inv: 0, stars: 0, got: new Set(), alive: true, t: 0, score: 0, bonus: 0,
       combo: 0, mult: 1, maxMult: 1, magnet: 0, smashed: new Set(), close: new Set(), hitIds: new Set(),
       nearDone: new Set(), near: 0, powers: 0, gates: 0, gateHit: new Set(), gateDone: new Set(), golds: 0,
-      bossHp: [], bossKill: [], bossHurt: [], cores: new Set(), coreCount: 0, bossesDown: 0, wells: 0 };
+      bossHp: [], bossKill: [], bossHurt: [], cores: new Set(), coreCount: 0, bossesDown: 0, wells: 0, flares: 0 };
   }
 
   /* One fixed step for a ship heading to targetX. Returns events for the screen to show. */
@@ -635,6 +675,17 @@ button.lk { cursor: pointer; }
       ev.push({ type: "hit", x: wst.x, y: wst.y, well: true });
       if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); }
     }
+    if (r.alive && r.inv === 0 && world.flaresLive && world.flaresLive.length) for (const a of beamsAt(world, r.t)) {
+      if (!a.live || Math.abs(r.x - a.x) >= a.hw + r.cfg.hit * 0.5) continue;
+      r.hitIds.add("flare" + r.t); r.lives--; r.inv = 75;
+      if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
+      ev.push({ type: "hit", x: a.x, y: r.y, flare: true });
+      if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); }
+      break;
+    }
+    if (r.alive && world.flaresLive) for (const f of world.flaresLive) {
+      if (r.t === f.t + f.dur) { r.bonus += 100; r.flares++; ev.push({ type: "survived", event: "flare" }); }
+    }
     if (r.alive && world.wellsLive) for (const w of world.wellsLive) {
       if (r.t === w.t + w.dur) { r.bonus += 100; r.wells++; ev.push({ type: "survived", event: "well" }); }
     }
@@ -650,6 +701,7 @@ button.lk { cursor: pointer; }
   function ghostAim(world, g, rng) {
     let best = g.x, bestCost = Infinity;
     const ba = world.bosses && world.bosses.length ? bossActive(world, g, g.t) : null;
+    const bm = world.flaresLive && world.flaresLive.length ? beamsAt(world, g.t) : null;
     for (let i = 0; i <= 16; i++) {
       const cx = SHIP_R + i * (W - 2 * SHIP_R) / 16;
       let cost = Math.abs(cx - g.x) * 0.02;
@@ -674,6 +726,7 @@ button.lk { cursor: pointer; }
           if (dt >= 0 && dt <= 60 && Math.abs(a.x - cx) < 24 && reach <= dt + 2) cost -= 6;
         }
       }
+      if (bm) for (const a of bm) if (a.k > BEAM_WARN - 50 && Math.abs(cx - a.x) < a.hw + SHIP_R + 8) cost += 30;
       cost += rng() * 3.2;
       if (cost < bestCost) { bestCost = cost; best = cx; }
     }
@@ -749,7 +802,8 @@ button.lk { cursor: pointer; }
   root.CR = { MIN_Y, MAX_Y, W, H, SHIP_Y, SHIP_R, TPS, MAX_LIVES, MAGNET_T, NOVA_R, dayNumber, makeWorld, active, newRunner, step,
     recordGhost, missions, SKINS, fmtTime, loadoutCfg, replay, MAX_T,
     bossPos, bossActive, setBosses, hiddenAt, eventHidden, BOSS_WARN, BOSS_HP,
-    setWells, wellAt, wellState, WELL_CORE, WELL_RANGE };
+    setWells, wellAt, wellState, WELL_CORE, WELL_RANGE,
+    setFlares, beamsAt, BEAM_WARN, BEAM_FIRE, FLARE_LEN };
 })(typeof module !== "undefined" ? module.exports : window);
 
 </script>
@@ -761,6 +815,7 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 24, date: "2026-11-06", notes: ["New event: Solar Flares! The sun erupts and fires heat beams straight down the screen", "Each beam is marked with an orange column for a full second before it burns. Slide out of the way", "Ride out the flare for +100. Later flares fire two beams at once", "New trophy: Flare Dancer. Flares appear in daily runs and from the Prism Rings world on"] },
     { v: 23, date: "2026-11-05", notes: ["New in the Shop: Booms! Pick how your ship explodes when it goes down", "Six effects: Pixel Pop, Fireworks, Shockwave, Glitch Out, Singularity and Prism Nova", "Tap ▶ to watch any effect before you buy. Fixed coin prices, looks only", "Your explosions show up in the Locker too"] },
     { v: 22, date: "2026-11-04", notes: ["New event: Black Holes! A swirling gravity well opens mid-run", "It bends the paths of meteors and stars, swallows anything that drifts into it, and tugs on your ship", "Don't touch the core. Ride it out for +100", "New trophy: Event Horizon. Black holes appear in daily runs and from the Red Circuit world on"] },
     { v: 21, date: "2026-11-03", notes: ["New Settings screen: open it from the start screen or the pause menu", "Choose how far above your finger the ship flies, and nudge it left or right for your thumb", "Vibration on/off, calmer screen effects (less shake and flashing), and a Low graphics mode for older phones", "Music and sound switches live there too"] },
@@ -835,6 +890,8 @@ button.lk { cursor: pointer; }
       if (type === "finale") CR.setBosses(world, [{ t0: durT - 22 * TPS, dur: 20 * TPS, lvl: w }]);
       /* Black holes start in the second world; Neon Belt stays a gentle introduction. */
       if (w === 0) CR.setWells(world, []);
+      /* Solar flares start in the third world, early in the run, before the first black hole. */
+      CR.setFlares(world, w >= 2 && type !== "finale" ? [14 * TPS] : []);
       const ghost = CR.recordGhost(world);
       const starsAvail = world.items.filter(it => it.kind === "star" && it.t + 180 < durT && !CR.hiddenAt(world, it.t) && !world.swallow.has(it.id)).length;
       const baseScore = Math.floor(durT / 6) + Math.round(starsAvail * 25 * 0.55);
@@ -1627,6 +1684,8 @@ button.lk { cursor: pointer; }
     siren: () => [0, 0.35, 0.7].forEach(d => { tone(330, 0.3, "sawtooth", 0.06, 220, d); }),
     core: () => { tone(700, 0.12, "triangle", 0.1, 500); tone(1400, 0.1, "sine", 0.05, 0, 0.05); },
     gulp: () => { tone(220, 0.25, "sine", 0.07, -170); },
+    flare: () => { tone(180, .9, "sawtooth", .06, 520); tone(1200, .6, "sine", .03, -700, .15); },
+    zap: () => { tone(1400, .22, "sawtooth", .045, -1100); tone(95, .3, "square", .05, -40); },
     rumble: () => { tone(70, 1.4, "sawtooth", 0.09, -25); tone(110, 1.1, "sine", 0.06, -60, 0.1); },
     boom: () => { tone(140, 0.7, "sawtooth", 0.16, -100); tone(70, 0.9, "square", 0.08, -30); [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.18, "triangle", 0.07, 0, 0.35 + i * 0.07)); }
   };
@@ -1743,7 +1802,7 @@ button.lk { cursor: pointer; }
   /* ---------- RACE YOUR BEST (app-side; replays your own recorded inputs through window.CR.step) ----------
      save.pb = { day, score, t, cfg, in: [[ticksSincePrevChange, x, y], ...] } for today's best daily run. */
   save.racePb = save.racePb !== false;
-  const PB_VER = 22; /* bump when the course rules change, so an old recording never desyncs */
+  const PB_VER = 24; /* bump when the course rules change, so an old recording never desyncs */
   if (!save.pb || typeof save.pb !== "object" || !Array.isArray(save.pb.in) || save.pb.day !== day || save.pb.v !== PB_VER) save.pb = null;
   let pbRun = null, pbLive = null, pbEndToasted = false;
   const PB_COL = "#c58bff";
@@ -1927,6 +1986,7 @@ button.lk { cursor: pointer; }
         <div class="whead"><h3>Level ${briefN}${L.finale ? " · Boss" : ""}</h3><span>${L.dur}s · ${lives} shield${lives > 1 ? "s" : ""}</span></div>
         <div class="tname">${th.name}</div>
         <div class="goal">${L.goalText}</div>
+        ${L.world.flaresLive && L.world.flaresLive.length ? `<div class="next">Solar flare at 0:${String(Math.round(L.world.flaresLive[0].t / TPS)).padStart(2, "0")}: slide out of the <b style="color:#ff9a4d">orange columns</b> before they burn.</div>` : ""}
         ${L.finale ? `<div class="next">Mothership boss: dodge the <b style="color:var(--hurt)">red bullets</b>, catch ${CR.BOSS_HP} <b style="color:var(--tide)">◆ cores</b> to destroy it.</div>` : ""}
         <div class="crit"><div><span class="s ${best >= 1 ? "" : "off"}">★</span>${L.type === "survive" || L.type === "finale" ? "Reach the finish" : "Complete the goal and reach the finish"}</div>
           <div><span class="s ${best >= 2 ? "" : "off"}">★</span>Score ${L.par.toLocaleString()} or more</div>
@@ -2340,7 +2400,7 @@ button.lk { cursor: pointer; }
     const best = save.best[day] || 0;
     o.innerHTML = `<div class="eyebrow">${mode === "daily" ? `Daily No. ${day} · ${theme.name}` : `Random course · ${theme.name}`}</div>
       <h2>Meteor <span class="hl">Pilot</span></h2>
-      <div class="quick"><b>Drag anywhere</b>. Your ship flies just above your finger. Dodge meteors. Chain <b style="color:var(--gold)">★</b> for a combo. Skim past rocks for close calls. Watch for showers, gates, comets, golden stars and <b style="color:#c58bff">black holes</b>. Last to 1:45 to face the <b style="color:var(--hurt)">Mothership</b>. Beat the ghost from ${p[0]} ${p[1]}: <b>${ghost.score.toLocaleString()}</b>${best ? ` · your best <b>${best.toLocaleString()}</b>` : ""}</div>
+      <div class="quick"><b>Drag anywhere</b>. Your ship flies just above your finger. Dodge meteors. Chain <b style="color:var(--gold)">★</b> for a combo. Skim past rocks for close calls. Watch for showers, gates, comets, golden stars, <b style="color:#c58bff">black holes</b> and <b style="color:#ff9a4d">solar flares</b>. Last to 1:45 to face the <b style="color:var(--hurt)">Mothership</b>. Beat the ghost from ${p[0]} ${p[1]}: <b>${ghost.score.toLocaleString()}</b>${best ? ` · your best <b>${best.toLocaleString()}</b>` : ""}</div>
       <div class="duo"><button class="btn pulse" id="play">Play daily</button><button class="btn lvl" id="levels-btn">Levels ★ ${LV.total(save.levels)}</button></div>
       ${rankHTML()}
       ${missionHTML()}
@@ -2493,7 +2553,7 @@ button.lk { cursor: pointer; }
     trail.push({ x: me.x, y: me.y + 12 }); if (trail.length > 18) trail.shift();
     if (save.trail === "sparks" && me.t % 2 === 0) particles.push({ x: me.x + (Math.random() - .5) * 8, y: me.y + 14, vx: (Math.random() - .5) * 1.2, vy: 2 + Math.random() * 2, life: 18 + Math.random() * 10, color: Math.random() < .5 ? "#ffcc4d" : "#ff7a3d" });
     for (const e of ev) {
-      if (e.type === "survived") floaters.push({ x: W / 2, y: H * 0.42, t: 0, text: e.event === "well" ? "BLACK HOLE CLOSED +100" : "SURVIVED +100", color: e.event === "well" ? "#c58bff" : "#4fe0cf", size: 18 });
+      if (e.type === "survived") floaters.push({ x: W / 2, y: H * 0.42, t: 0, text: e.event === "well" ? "BLACK HOLE CLOSED +100" : e.event === "flare" ? "FLARE SURVIVED +100" : "SURVIVED +100", color: e.event === "well" ? "#c58bff" : e.event === "flare" ? "#ff9a4d" : "#4fe0cf", size: 18 });
       if (e.type === "guard") { floaters.push({ x: me.x, y: me.y - 40, t: 0, text: "COMBO SAVED", color: "#ffcc4d", size: 15 }); }
       if (e.type === "gate") { floaters.push({ x: e.x, y: e.y, t: 0, text: "GATE +" + e.pts, color: "#8ca0ff", size: 17 }); sfx.power(); burst(e.x, e.y + 30, "#8ca0ff", 16); }
       if (e.type === "star" && e.gold) { burst(e.x, e.y, "#ffffff", 30); burst(e.x, e.y, "#ffcc4d", 30); shake = 8; flash = { c: "255,230,150", a: .4 }; sfx.best(); toast(`Golden star +${e.pts}`, true); }
@@ -2513,6 +2573,7 @@ button.lk { cursor: pointer; }
         burst(me.x, me.y, "#ff7a3d", 18); shake = 14; flash = { c: "255,79,98", a: .45 }; sfx.hit(); vibrate(60);
         const a = rockAt(e.x, e.y, me.t, false); if (a) shatter(a, me.t, 1);
         hitStop(110); slowMs = 0;
+        if (e.flare) { flash = { c: "255,150,60", a: .5 }; burst(me.x, me.y, "#ffd29a", 14); }
       }
       if (e.type === "dead") { const bk = BOOMS[boomKey()]; bk.play(GAME_FX, me.x, me.y, shipLook().body); bk.snd(); shake = 22; sfx.dead(); vibrate([80, 40, 120]); hitStop(260); }
       if (e.type === "bossIn") { toast(`Catch ${CR.BOSS_HP} ◆ cores to break it`, true); shake = 10; }
@@ -2525,6 +2586,10 @@ button.lk { cursor: pointer; }
     }
     if (world.wellsLive) for (const w of world.wellsLive) {
       if (me.t === w.t - 60) { toast("⚠ BLACK HOLE · stay clear of the core"); sfx.rumble(); vibrate([30, 50, 30]); }
+    }
+    if (world.flaresLive) for (const f of world.flaresLive) {
+      if (me.t === f.t - 60) { toast("☀ SOLAR FLARE · dodge the beams"); sfx.flare(); vibrate([20, 40, 20]); }
+      if (me.t >= f.t && me.t < f.t + f.dur && me.alive) for (const b of f.beams) if (me.t === b.t + CR.BEAM_WARN) { sfx.zap(); shake = Math.max(shake, 5); }
     }
     const gulped = world.swallowAt && world.swallowAt.get(me.t);
     if (gulped) {
@@ -2581,7 +2646,7 @@ button.lk { cursor: pointer; }
   }
   // ---------- trophies (app-side; reads runs, never changes the rules) ----------
   save.ach = save.ach && typeof save.ach === "object" ? save.ach : {};
-  save.rec = Object.assign({ stars: 0, near: 0, secs: 0, score: 0, mult: 1, golds: 0, gates: 0, novas: 0, ghostWins: 0, bosses: 0, wells: 0 }, save.rec || {});
+  save.rec = Object.assign({ stars: 0, near: 0, secs: 0, score: 0, mult: 1, golds: 0, gates: 0, novas: 0, ghostWins: 0, bosses: 0, wells: 0, flares: 0 }, save.rec || {});
   let runNovas = 0, runTrophies = [];
   const best = (k, v) => Math.max(save.rec[k] || 0, v || 0);
   /* live: can unlock mid-run from this run's stats. Others are checked when a run ends. */
@@ -2599,6 +2664,7 @@ button.lk { cursor: pointer; }
     { id: "score2k", icon: "2.5k", name: "High Flyer", desc: "Score 2,500 in one run", coins: 30, goal: 2500, live: true, of: r => best("score", r && r.score) },
     { id: "score5k", icon: "5k", name: "Meteor Legend", desc: "Score 5,000 in one run", coins: 60, goal: 5000, live: true, of: r => best("score", r && r.score) },
     { id: "well", icon: "◉", name: "Event Horizon", desc: "Ride out a black hole", coins: 25, goal: 1, live: true, of: r => best("wells", r && r.wells) },
+    { id: "flare", icon: "☀", name: "Flare Dancer", desc: "Ride out a solar flare", coins: 25, goal: 1, live: true, of: r => best("flares", r && r.flares) },
     { id: "boss", icon: "◆", name: "Boss Breaker", desc: "Destroy a Mothership", coins: 50, goal: 1, live: true, of: r => best("bosses", r && r.bossesDown) },
     { id: "ghost", icon: "◐", name: "Ghost Buster", desc: "Beat the ghost on the daily course", coins: 25, goal: 1, of: () => save.rec.ghostWins },
     { id: "flawless", icon: "★★★", name: "Flawless", desc: "Earn 3 stars on a level", coins: 30, goal: 1, of: () => Object.values(save.levels).some(v => v >= 3) ? 1 : 0 },
@@ -2625,7 +2691,7 @@ button.lk { cursor: pointer; }
     const R = save.rec;
     R.stars = best("stars", r.stars); R.near = best("near", r.near); R.secs = best("secs", Math.floor(r.t / TPS));
     R.score = best("score", r.score); R.mult = best("mult", r.maxMult); R.golds = best("golds", r.golds);
-    R.gates = best("gates", r.gates); R.novas = best("novas", runNovas); R.bosses = best("bosses", r.bossesDown); R.wells = best("wells", r.wells);
+    R.gates = best("gates", r.gates); R.novas = best("novas", runNovas); R.bosses = best("bosses", r.bossesDown); R.wells = best("wells", r.wells); R.flares = best("flares", r.flares);
     if (beatGhost) R.ghostWins++;
     trophyCheck(r, false); persist();
   }
@@ -3036,6 +3102,51 @@ button.lk { cursor: pointer; }
       }
     }
   }
+  /* ---------- SOLAR FLARE (display only; beam timing and hits live in window.CR) ----------
+     A sun corona on the top edge, warm side glow, orange marked columns that pulse, then white-hot beams with dark rims. */
+  function drawFlare(t) {
+    const fl = world.flaresLive; if (!fl || !fl.length) return;
+    const f = fl.find(f => t >= f.t - 60 && t < f.t + f.dur + 30); if (!f) return;
+    const k = Math.max(0, Math.min(1, (t - f.t + 60) / 60, (f.t + f.dur + 30 - t) / 30)), lite = lowGfx();
+    ctx.save();
+    const fl2 = calm() ? 0 : Math.sin(t * 0.21) * 0.05;
+    const sg = ctx.createRadialGradient(W / 2, -50, 10, W / 2, -50, 280);
+    sg.addColorStop(0, `rgba(255,240,200,${(.6 + fl2) * k})`); sg.addColorStop(.3, `rgba(255,160,70,${.3 * k})`); sg.addColorStop(1, "rgba(255,90,40,0)");
+    ctx.fillStyle = sg; ctx.fillRect(0, 0, W, 300);
+    if (!lite) for (const side of [0, 1]) {
+      const g = ctx.createLinearGradient(side ? W : 0, 0, side ? W - 40 : 40, 0);
+      g.addColorStop(0, `rgba(255,120,50,${.22 * k})`); g.addColorStop(1, "rgba(255,120,50,0)");
+      ctx.fillStyle = g; ctx.fillRect(side ? W - 40 : 0, 0, 40, H);
+    }
+    for (const a of CR.beamsAt(world, t)) {
+      const x0 = a.x - a.hw, x1 = a.x + a.hw;
+      if (!a.live) {
+        const p = a.k / CR.BEAM_WARN, blink = Math.floor(t / 5) % 2 ? 1 : .55;
+        ctx.fillStyle = `rgba(255,122,61,${.05 + .14 * p})`; ctx.fillRect(x0, 56, a.hw * 2, H - 56);
+        ctx.strokeStyle = `rgba(255,170,90,${(.35 + .5 * p) * blink})`; ctx.lineWidth = 2; ctx.setLineDash([8, 8]); ctx.lineDashOffset = -t * 2;
+        ctx.beginPath(); ctx.moveTo(x0, 56); ctx.lineTo(x0, H); ctx.moveTo(x1, 56); ctx.lineTo(x1, H); ctx.stroke(); ctx.setLineDash([]);
+        const cw = a.hw * (1 - p);
+        ctx.fillStyle = `rgba(255,210,150,${.25 + .5 * p})`; ctx.fillRect(a.x - Math.max(1, cw), 56, Math.max(2, cw * 2), 3);
+        ctx.fillStyle = "#ff9a4d"; ctx.font = "700 20px 'Chakra Petch', sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", a.x, 80);
+      } else {
+        const q = (a.k - CR.BEAM_WARN) / CR.BEAM_FIRE, al = Math.min(1, q * 6, (1 - q) * 4), w = a.hw * (calm() ? 1 : 0.9 + 0.1 * Math.sin(t * 0.9));
+        const g = ctx.createLinearGradient(a.x - w - 6, 0, a.x + w + 6, 0);
+        g.addColorStop(0, "rgba(40,8,0,0)"); g.addColorStop(.06, `rgba(40,8,0,${.75 * al})`); g.addColorStop(.16, `rgba(255,110,40,${.9 * al})`);
+        g.addColorStop(.36, `rgba(255,200,120,${.95 * al})`); g.addColorStop(.5, `rgba(255,255,255,${al})`);
+        g.addColorStop(.64, `rgba(255,200,120,${.95 * al})`); g.addColorStop(.84, `rgba(255,110,40,${.9 * al})`); g.addColorStop(.94, `rgba(40,8,0,${.75 * al})`); g.addColorStop(1, "rgba(40,8,0,0)");
+        ctx.fillStyle = g; ctx.fillRect(a.x - w - 6, 0, w * 2 + 12, H);
+        if (!lite) {
+          ctx.globalCompositeOperation = "lighter";
+          const gl = ctx.createLinearGradient(a.x - w * 2.4, 0, a.x + w * 2.4, 0);
+          gl.addColorStop(0, "rgba(255,120,50,0)"); gl.addColorStop(.5, `rgba(255,140,60,${.35 * al})`); gl.addColorStop(1, "rgba(255,120,50,0)");
+          ctx.fillStyle = gl; ctx.fillRect(a.x - w * 2.4, 0, w * 4.8, H);
+          ctx.globalCompositeOperation = "source-over";
+          if (state === "play" && Math.random() < 0.5) particles.push({ x: a.x + (Math.random() - .5) * w * 2, y: Math.random() * H, vx: (Math.random() - .5) * 2, vy: -1 - Math.random() * 2, life: 14 + Math.random() * 10, color: Math.random() < .5 ? "#ffd29a" : "#ff7a3d" });
+        }
+      }
+    }
+    ctx.restore();
+  }
   function drawCores(list, t) {
     for (const a of list) {
       const r = a.r * (1 + Math.sin(t * 0.18 + a.c.id) * 0.1);
@@ -3115,7 +3226,7 @@ button.lk { cursor: pointer; }
         ctx.fillStyle = "#ff4f62"; ctx.font = "700 20px 'Chakra Petch', sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", it.x, 78);
       }
     }
-    if (playing) drawWell(t);
+    if (playing) { drawWell(t); drawFlare(t); }
     for (const a of CR.active(world, vt)) {
       const k = a.it.kind;
       if (k === "rock") { if (!(playing && (me.smashed.has(a.it.id) || (shattered.has(a.it.id) && me.inv > 0)))) drawMeteor(a, vt); }
