@@ -59,6 +59,12 @@ h1 span { color: var(--ember); }
 .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--rule); background: rgba(12,17,42,.7); white-space: nowrap; }
 .chip.coin b { color: var(--gold); }
 .chip.fire b { color: var(--ember); }
+/* v26: the top bar never pushes the page sideways on small phones; with an extra chip (Install) it wraps instead */
+.top > h1 { flex: none; }
+.chips { min-width: 0; flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
+@media (max-width: 400px) { h1 { font-size: 1.05rem; letter-spacing: .02em; } .chips { gap: 4px; } .chip { padding: 3px 7px; } .top { gap: 6px; } }
+@media (max-width: 380px) { h1 { font-size: .95rem; letter-spacing: 0; } .chips { font-size: .74rem; gap: 3px; } .chip { padding: 3px 6px; gap: 3px; } }
+@media (max-width: 340px) { h1 { font-size: .85rem; } .chip { padding: 2px 5px; } }
 .mute { font: inherit; color: var(--ink); cursor: pointer; }
 .mute.off { color: var(--muted); text-decoration: line-through; opacity: .6; }
 .stage { position: relative; flex: none; max-width: 100%; border-radius: 18px; overflow: hidden; border: 1px solid var(--rule);
@@ -271,7 +277,7 @@ button.lk { cursor: pointer; }
 <div class="top">
   <h1>Meteor <span>Pilot</span></h1>
   <div class="chips">
-    <span class="chip fire" title="Days in a row you've played the daily course">🔥 <b id="c-streak">0</b></span>
+    <span class="chip fire" title="Days in a row you've played">🔥 <b id="c-streak">0</b></span>
     <span class="chip coin" title="Coins">◉ <b id="c-coins">0</b></span>
     <button class="chip mute" id="music" aria-label="Music on" title="Music">♫</button>
     <button class="chip mute" id="mute" aria-label="Sound effects on" title="Sound effects">SFX</button>
@@ -763,12 +769,26 @@ button.lk { cursor: pointer; }
     { id: "time", make: n => ({ text: `Survive ${n} seconds`, goal: n, of: r => Math.floor(r.t / TPS) }), sizes: [40, 60, 90] },
     { id: "near", make: n => ({ text: `Pull off ${n} close calls in one run`, goal: n, of: r => r.near }), sizes: [5, 10, 15] },
     { id: "power", make: n => ({ text: `Catch ${n} power-ups in one run`, goal: n, of: r => r.powers }), sizes: [2, 3, 4] },
-    { id: "gates", make: n => ({ text: `Fly through ${n} gates in one run`, goal: n, of: r => r.gates }), sizes: [2, 4, 6] },
+    { id: "gates", make: n => ({ text: `Fly through ${n} gates in one run`, goal: n, of: r => r.gates }), sizes: [2, 3, 4] },
     { id: "score", make: n => ({ text: `Score ${n.toLocaleString()} points`, goal: n, of: r => r.score }), sizes: [800, 1500, 2500] }
   ];
+  /* v26: a gates event holds 4 gates, so a gates mission is only offered when the daily course has a gates event
+     that starts before 60 s and isn't hidden by the Mothership. Uses the same first rng draws as makeWorld's event shuffle. */
+  const GATES_BY = TPS * 60;
+  function firstGatesAt(seed) {
+    const rng = mulberry32(hashStr(String(seed)));
+    const order = ["shower", "gates", "starrain", "streaks"];
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    const hide = DAILY_BOSSES.map(b => [b.t0 - BOSS_WARN, b.t0 + b.dur]);
+    for (let k = 0; k < 8; k++) {
+      const t = TPS * (20 + k * 25), dur = EVENT_LEN[order[k % 4]];
+      if (order[k % 4] === "gates" && !hide.some(h => t < h[1] && t + dur > h[0])) return t;
+    }
+    return Infinity;
+  }
   function missions(day) {
     const rng = mulberry32(hashStr("missions-" + day));
-    const pool = MISSION_POOL.slice(), out = [];
+    const pool = MISSION_POOL.filter(m => m.id !== "gates" || firstGatesAt("comet-" + day) < GATES_BY), out = [];
     for (let tier = 0; tier < 3; tier++) {
       const m = pool.splice(Math.floor(rng() * pool.length), 1)[0];
       out.push(Object.assign({ key: m.id + tier, reward: 30 + tier * 30 }, m.make(m.sizes[tier])));
@@ -813,7 +833,7 @@ button.lk { cursor: pointer; }
     recordGhost, missions, SKINS, fmtTime, loadoutCfg, replay, MAX_T,
     bossPos, bossActive, setBosses, hiddenAt, eventHidden, BOSS_WARN, BOSS_HP,
     setWells, wellAt, wellState, WELL_CORE, WELL_RANGE,
-    setFlares, beamsAt, BEAM_WARN, BEAM_FIRE, FLARE_LEN, SIPHON_EVERY };
+    setFlares, beamsAt, BEAM_WARN, BEAM_FIRE, FLARE_LEN, SIPHON_EVERY, firstGatesAt };
 })(typeof module !== "undefined" ? module.exports : window);
 
 </script>
@@ -825,6 +845,7 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 26, date: "2026-11-08", notes: ["Gate missions are always doable now: they only show up on days with an early gates event, and ask for 2 to 4 gates", "The Supporter Pass is now looks only: Founder paint, badge, a gold trail and a Gold Rush explosion. No more XP boost, so everyone ranks up at the same pace", "Every rank-up now pays a flat 40 coins", "Your 🔥 streak counts any run, Levels included, and shows 0 if you miss a day"] },
     { v: 25, date: "2026-11-07", notes: ["Two new ships with special abilities, each with its own 3D body", "Halo: a ring-winged cruiser. Star Siphon restores a shield every 15 stars you catch", "Phantom: a stealth wing. Phase Shift keeps you phased twice as long after a hit, and close calls pay double", "Find them in the Hangar. Halo unlocks at Pilot Lv 6, Phantom at Lv 13"] },
     { v: 24, date: "2026-11-06", notes: ["New event: Solar Flares! The sun erupts and fires heat beams straight down the screen", "Each beam is marked with an orange column for a full second before it burns. Slide out of the way", "Ride out the flare for +100. Later flares fire two beams at once", "New trophy: Flare Dancer. Flares appear in daily runs and from the Prism Rings world on"] },
     { v: 23, date: "2026-11-05", notes: ["New in the Shop: Booms! Pick how your ship explodes when it goes down", "Six effects: Pixel Pop, Fireworks, Shockwave, Glitch Out, Singularity and Prism Nova", "Tap ▶ to watch any effect before you buy. Fixed coin prices, looks only", "Your explosions show up in the Locker too"] },
@@ -956,7 +977,7 @@ button.lk { cursor: pointer; }
       return ups;
     }
     const runXP = (r, newLevelStars) => Math.floor(r.score / 10) + newLevelStars * 25;
-    const levelUpCoins = lv => 20 * lv;
+    const levelUpCoins = () => 40; /* v26: flat, so ship unlocks stretch across the first week or so */
 
     return { WORLDS, COUNT, get, progress, rate, total, worldOpen, levelOpen, xpNeed, rankName, addXP, runXP, levelUpCoins };
   }
@@ -1590,6 +1611,9 @@ button.lk { cursor: pointer; }
   if (typeof save.musicOff !== "boolean") save.musicOff = !!save.muted; /* players who muted before keep silence */
   if (typeof save.tutDone !== "boolean") save.tutDone = save.runs > 0; /* players who already have runs skip the tips */
   save.levels = save.levels || {};
+  /* Streak (v26): any finished run counts for the day. A missed day shows 0 right away, not only after the next daily run. */
+  if (!(save.lastDay >= day - 1)) save.streak = 0;
+  function bumpStreak() { if (save.lastDay !== day) { save.streak = save.lastDay === day - 1 ? save.streak + 1 : 1; save.lastDay = day; } }
   /* Settings (v21). Display + input only: nothing here changes the rules or scores. */
   save.set = Object.assign({ haptics: true, motion: "auto", gap: "normal", hand: "center", gfx: "high" }, save.set && typeof save.set === "object" ? save.set : {});
   const lowGfx = () => save.set.gfx === "low";
@@ -1608,7 +1632,8 @@ button.lk { cursor: pointer; }
     { id: "sparks", name: "Sparks", cost: 80, desc: "A shower of hot embers", preview: "linear-gradient(90deg,#ffcc4d,#ff7a3d)" },
     { id: "rainbow", name: "Rainbow", cost: 220, desc: "A shifting rainbow ribbon", preview: "linear-gradient(90deg,#ff4f62,#ffcc4d,#7cf3a0,#4fb8ff,#b07bff)" },
     { id: "plasma", name: "Plasma", cost: 450, desc: "A glowing ion stream", preview: "linear-gradient(90deg,#4fe0cf,#9b7bff)" },
-    { id: "stardust", name: "Stardust", cost: 900, desc: "Twinkling starlight", preview: "radial-gradient(circle,#fff 25%,transparent 30%) 0 0/8px 8px, #1b2550" }
+    { id: "stardust", name: "Stardust", cost: 900, desc: "Twinkling starlight", preview: "radial-gradient(circle,#fff 25%,transparent 30%) 0 0/8px 8px, #1b2550" },
+    { id: "founder", name: "Founder", cost: 0, exclusive: true, desc: "Gold ribbon with white sparks. Supporter Pass", preview: "linear-gradient(90deg,#fff1c2,#ffcc4d,#ff9a3d)" }
   ];
   function loadout() {
     return CR.loadoutCfg(skin().id, save.up);
@@ -1942,7 +1967,7 @@ button.lk { cursor: pointer; }
       return `<div class="card" style="--c:${u.color}"><span class="upico">${u.icon}</span><div class="meta"><h3>${u.name}</h3><p>${u.desc(l)}${max ? "" : `<br>Next: ${u.desc(l + 1)}`}</p>
         <div class="pips">${[0, 1, 2, 3, 4].map(i => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</div></div>${act}</div>`;
     }).join("");
-    if (hTab === "trails") body = TRAILS.map(t => {
+    if (hTab === "trails") body = TRAILS.filter(t => !t.exclusive || save.trails.includes(t.id)).map(t => {
       const own = save.trails.includes(t.id), eq = save.trail === t.id;
       const need = TRAIL_RANK[t.id] || 1, gated = !own && save.pilot < need;
       const act = eq ? `<span class="buy eq">Equipped</span>` : own ? `<button class="buy ghosted" data-act="trail" data-id="${t.id}">Equip</button>` : gated ? `<button class="buy poor" data-act="trail" data-id="${t.id}">🔒 Lv ${need}</button>` : `<button class="buy ${save.coins < t.cost ? "poor" : ""}" data-act="trail" data-id="${t.id}">◉ ${t.cost}</button>`;
@@ -2068,7 +2093,8 @@ button.lk { cursor: pointer; }
     if (res.stars > prev) save.levels[n] = res.stars;
     const starCoins = gained * (10 + 5 * L.w), runCoins = me.stars;
     save.coins += starCoins + runCoins; save.runs++;
-    const xp = Math.round(LV.runXP(me, gained) * (save.pass ? 1.25 : 1)), ups = LV.addXP(save, xp);
+    bumpStreak();
+    const xp = LV.runXP(me, gained), ups = LV.addXP(save, xp);
     let upCoins = 0; ups.forEach(lv => { upCoins += LV.levelUpCoins(lv); }); save.coins += upCoins;
     trophyEnd(me, false);
     persist(); paintChips();
@@ -2147,12 +2173,13 @@ button.lk { cursor: pointer; }
     { id: "x-implode", kind: "boom", name: "Singularity", rarity: "epic", fx: "implode", sw: "radial-gradient(circle,#000 25%,#fff 29%,#c58bff 36%,#3a1c6b 70%)" },
     { id: "x-prism", kind: "boom", name: "Prism Nova", rarity: "legendary", fx: "prism", sw: "conic-gradient(#ff3ea5,#ffd23e,#3ef08a,#3ef0ff,#b07bff,#ff3ea5)" },
     { id: "p-founder", kind: "paint", name: "Founder", rarity: "legendary", body: "#fff1c2", flame: "#ffcc4d", exclusive: true },
-    { id: "b-founder", kind: "badge", name: "Founder", rarity: "legendary", exclusive: true }
+    { id: "b-founder", kind: "badge", name: "Founder", rarity: "legendary", exclusive: true },
+    { id: "x-founder", kind: "boom", name: "Gold Rush", rarity: "legendary", fx: "founder", exclusive: true, sw: "radial-gradient(circle,#fff 14%,#ffcc4d 30%,#1b2550 40%,#ffcc4d 52%,#1b2550 62%)" }
   ];
   /* Real-money catalog: fixed contents, no randomness. Prices are placeholders; the app store sets local prices.
      No coin packs, because coins buy upgrades that affect scores. */
   const PAID = [
-    { id: "pass", icon: "♛", color: "#ffcc4d", name: "Supporter Pass", price: "$4.99", desc: "Exclusive Founder paint and badge, plus +25% XP on every run, forever.", grants: { items: ["p-founder", "b-founder"], pass: true } },
+    { id: "pass", icon: "♛", color: "#ffcc4d", name: "Supporter Pass", price: "$4.99", desc: "Exclusive Founder paint and badge, a gold Founder trail and the Gold Rush explosion. Looks only.", grants: { items: ["p-founder", "b-founder", "x-founder"], trail: "founder", pass: true } },
     { id: "neon", icon: "◆", color: "#ff3ea5", name: "Neon Paint Pack", price: "$1.99", desc: "Synthwave, Toxic and Ocean Deep paints.", grants: { items: ["p-synth", "p-toxic", "p-ocean"] } },
     { id: "legend", icon: "✦", color: "#b07bff", name: "Legend Paint Pack", price: "$2.99", desc: "Prismatic (color-shifting) and Black Hole paints.", grants: { items: ["p-prism", "p-void"] } }
   ];
@@ -2168,6 +2195,11 @@ button.lk { cursor: pointer; }
   const cosById = id => COSMETICS.find(c => c.id === id);
   const giftReady = () => save.giftDay !== day;
   const packOwned = p => p.grants.items.every(id => save.cos.includes(id)) && (!p.grants.pass || save.pass);
+  /* v26: the Supporter Pass is cosmetic only. Players who already own it get the new trail and explosion. */
+  if (save.pass) {
+    if (!save.cos.includes("x-founder")) save.cos.push("x-founder");
+    if (!save.trails.includes("founder")) save.trails.push("founder");
+  }
 
   /* Ship colors: the equipped paint changes how the ship looks, never its stats. */
   function shipLook() {
@@ -2199,7 +2231,7 @@ button.lk { cursor: pointer; }
         }).join("")}</div>`;
     }
     if (shopTab === "booms") {
-      const list = [{ id: null, name: "Classic", rarity: "common", free: true, sw: "radial-gradient(circle,#fff 12%,#ff7a3d 45%,#ff4f62 72%)" }].concat(COSMETICS.filter(c => c.kind === "boom"));
+      const list = [{ id: null, name: "Classic", rarity: "common", free: true, sw: "radial-gradient(circle,#fff 12%,#ff7a3d 45%,#ff4f62 72%)" }].concat(COSMETICS.filter(c => c.kind === "boom" && (!c.exclusive || save.cos.includes(c.id))));
       body = `<canvas class="prev" id="boom-prev" width="600" height="250" aria-label="Explosion preview"></canvas>
         <p class="fine">Plays when your ship goes down. Tap ▶ to preview. Looks only, never changes your score.</p>
         <div class="locker">${list.map(c => {
@@ -2213,7 +2245,7 @@ button.lk { cursor: pointer; }
       body = PAID.map(it => `<div class="card paid"><span class="upico" style="--c:${it.color}">${it.icon}</span>
           <div class="meta"><h3>${it.name}</h3><p>${it.desc}</p></div>
           ${packOwned(it) ? `<span class="buy eq">Owned</span>` : `<button class="buy" data-pay="${it.id}">${it.price}</button>`}</div>`).join("")
-        + `<p class="fine">Everything here is cosmetic, except the Supporter Pass XP boost. You always know exactly what you get. Purchases never change your score or upgrades.</p>`;
+        + `<p class="fine">Everything here is cosmetic. You always know exactly what you get. Purchases never change your score, XP, coins or upgrades.</p>`;
     }
     if (shopTab === "locker") {
       const mine = COSMETICS.filter(c => save.cos.includes(c.id));
@@ -2274,6 +2306,7 @@ button.lk { cursor: pointer; }
     }
     const g = item.grants;
     g.items.forEach(id => { if (!save.cos.includes(id)) save.cos.push(id); });
+    if (g.trail && !save.trails.includes(g.trail)) save.trails.push(g.trail);
     if (g.pass) save.pass = true;
     save.bought[item.id] = true;
     const firstPaint = g.items.find(i => i.startsWith("p-")); if (firstPaint) save.paint = firstPaint;
@@ -2337,6 +2370,14 @@ button.lk { cursor: pointer; }
     implode: {
       play(B, x, y) { B.b.push({ type: "imp", x, y, t: 0, life: 60 }); },
       snd() { tone(200, .35, "sine", .08, 700); tone(60, .7, "sawtooth", .12, -20, .37); }
+    },
+    founder: {
+      play(B, x, y) {
+        B.r.push({ x, y, r: 4, max: 200, c: "255,204,77", v: 7, w: 5 }, { x, y, r: 2, max: 120, c: "255,241,194", v: 4.5, w: 3 });
+        for (let i = 0; i < 44; i++) { const a = -Math.PI / 2 + (Math.random() - .5) * 2.4, s = 2.5 + Math.random() * 4.5; B.p.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, g: .14, life: 50 + Math.random() * 25, color: i % 4 ? "#ffcc4d" : "#fff1c2", s: 4 }); }
+        fxBurst(B, x, y, "#ffffff", 18, 3);
+      },
+      snd() { [784, 988, 1175, 1568, 1976].forEach((f, i) => tone(f, .2, "triangle", .06, 0, i * .06)); tone(110, .5, "sine", .08, -40); }
     },
     prism: {
       play(B, x, y) {
@@ -2709,7 +2750,7 @@ button.lk { cursor: pointer; }
     { id: "ghost", icon: "◐", name: "Ghost Buster", desc: "Beat the ghost on the daily course", coins: 25, goal: 1, of: () => save.rec.ghostWins },
     { id: "flawless", icon: "★★★", name: "Flawless", desc: "Earn 3 stars on a level", coins: 30, goal: 1, of: () => Object.values(save.levels).some(v => v >= 3) ? 1 : 0 },
     { id: "explorer", icon: "◎", name: "Explorer", desc: "Open the Red Circuit world", coins: 40, goal: LV.WORLDS[1].need, of: () => LV.total(save.levels) },
-    { id: "streak3", icon: "3d", name: "Regular", desc: "Play the daily 3 days in a row", coins: 30, goal: 3, of: () => save.streak },
+    { id: "streak3", icon: "3d", name: "Regular", desc: "Play 3 days in a row", coins: 30, goal: 3, of: () => save.streak },
     { id: "fleet", icon: "◆", name: "Fleet", desc: "Own 3 ships", coins: 30, goal: 3, of: () => save.owned.length },
     { id: "ace", icon: "A", name: "Ace", desc: "Reach pilot rank Ace (Lv 6)", coins: 50, goal: 6, of: () => save.pilot }
   ];
@@ -2856,9 +2897,9 @@ button.lk { cursor: pointer; }
     if (mode === "daily") {
       if (me.score > (save.best[day] || 0)) { save.best[day] = me.score; newBest = true; }
       if (newBest) pbSave();
-      if (save.lastDay !== day) { save.streak = save.lastDay === day - 1 ? save.streak + 1 : 1; save.lastDay = day; }
     }
-    const xpRun = Math.round(LV.runXP(me, 0) * (save.pass ? 1.25 : 1)), upsRun = LV.addXP(save, xpRun);
+    bumpStreak();
+    const xpRun = LV.runXP(me, 0), upsRun = LV.addXP(save, xpRun);
     let upCoinsRun = 0; upsRun.forEach(lv => { upCoinsRun += LV.levelUpCoins(lv); }); save.coins += upCoinsRun;
     if (upsRun.length) setTimeout(() => { sfx.best(); toast(`Rank up! Pilot Lv ${save.pilot}`, true); }, 700);
     const diff = me.score - ghost.score, p = world.partner, secs = me.t / TPS;
@@ -2955,6 +2996,12 @@ button.lk { cursor: pointer; }
         continue;
       }
       if (kind === "rainbow") { ctx.strokeStyle = `hsla(${(t * 5 + i * 22) % 360},90%,62%,${k * .85})`; ctx.lineWidth = 2 + k * 7; }
+      if (kind === "founder") {
+        ctx.strokeStyle = `rgba(255,204,77,${k * .8})`; ctx.shadowColor = "#ffcc4d"; ctx.shadowBlur = 10; ctx.lineWidth = 2 + k * 6;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.shadowBlur = 0;
+        if (i % 3 === 0) { ctx.fillStyle = `rgba(255,255,255,${k * (.5 + .5 * Math.abs(Math.sin(t * .25 + i)))})`; ctx.fillRect(b.x + Math.sin(i * 5 + t * .15) * 5 - 1.5, b.y - 1.5, 3, 3); }
+        continue;
+      }
       if (kind === "plasma") { ctx.strokeStyle = `rgba(79,224,207,${k * .75})`; ctx.shadowColor = "#9b7bff"; ctx.shadowBlur = 14; ctx.lineWidth = 1 + k * 9; }
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
