@@ -372,7 +372,8 @@ button.lk { cursor: pointer; }
   /* ---------- Solar flares (v24): the sun flares for a few seconds and fires vertical heat beams down the screen.
      Each beam is marked for a full second (BEAM_WARN) before it burns (BEAM_FIRE). Own rng, so the course is unchanged. ---------- */
   const FLARE_LEN = TPS * 6, BEAM_WARN = 60, BEAM_FIRE = 30, BEAM_HW = 26, BEAM_EVERY = 55;
-  const DAILY_FLARES = [55, 132, 177].map(s => TPS * s);
+  /* v27: first flare at 48 s, so it ends before the first Mothership warning */
+  const DAILY_FLARES = [48, 132, 177].map(s => TPS * s);
   /** Replace a world's solar flares. starts: ticks. Flares that overlap a boss or a black hole are dropped. */
   function setFlares(world, starts) {
     const rng = mulberry32(hashStr(world.seed + ":flare"));
@@ -409,7 +410,8 @@ button.lk { cursor: pointer; }
   /* ---------- Black holes (v22): a gravity well opens between events. It bends the paths of everything falling
      past it, swallows what drifts into its core, tugs on the ship, and its core hurts. Own rng, so the course is unchanged. ---------- */
   const WELL_LEN = TPS * 7, WELL_RAMP = 60, WELL_CORE = 20, WELL_PULL = 3.4, WELL_RANGE = 300, WELL_BEND = 0.55, WELL_SIG = 150;
-  const DAILY_WELLS = [27, 77, 152, 229].map(s => TPS * s);
+  /* v27: 77 s and 152 s moved to 88 s and 186 s so they no longer fall inside a Mothership fight and get dropped */
+  const DAILY_WELLS = [27, 88, 186, 229].map(s => TPS * s);
   /** Replace a world's black holes. starts: ticks. Wells that overlap a boss are dropped. */
   function setWells(world, starts) {
     const rng = mulberry32(hashStr(world.seed + ":well"));
@@ -460,7 +462,8 @@ button.lk { cursor: pointer; }
   /* ---------- Mothership boss: slow, readable bullet patterns fixed by the seed (own rng, so the course itself is unchanged).
      While a boss is on screen (plus a short warning before it), normal meteors, stars and events are held back. ---------- */
   const BOSS_WARN = 150, BOSS_ENTER = 100, BOSS_LEAVE = 60, BOSS_HP = 5;
-  const DAILY_BOSSES = [{ t0: TPS * 105, dur: TPS * 22, lvl: 1 }, { t0: TPS * 205, dur: TPS * 22, lvl: 3 }];
+  /* v27 (audit #1): the first Mothership arrives at 1:00 so most players actually meet it; the tougher one at 2:30 */
+  const DAILY_BOSSES = [{ t0: TPS * 60, dur: TPS * 22, lvl: 0 }, { t0: TPS * 150, dur: TPS * 22, lvl: 2 }];
   function bossPos(b, t) {
     const k = t - b.t0;
     let y = 96;
@@ -762,15 +765,16 @@ button.lk { cursor: pointer; }
     return { path, scores, score: g.score, t: g.t, stars: g.stars };
   }
 
-  /* Three daily missions, the same for everyone that day. */
+  /* Three daily missions, the same for everyone that day.
+     v28 (audit #2): sizes tuned to where players actually get to (survival, score and close calls came down). */
   const MISSION_POOL = [
     { id: "stars", make: n => ({ text: `Grab ${n} stars in one run`, goal: n, of: r => r.stars }), sizes: [15, 25, 35] },
     { id: "combo", make: n => ({ text: `Reach a ×${n} combo`, goal: n, of: r => r.maxMult }), sizes: [3, 4, 5] },
-    { id: "time", make: n => ({ text: `Survive ${n} seconds`, goal: n, of: r => Math.floor(r.t / TPS) }), sizes: [40, 60, 90] },
-    { id: "near", make: n => ({ text: `Pull off ${n} close calls in one run`, goal: n, of: r => r.near }), sizes: [5, 10, 15] },
+    { id: "time", make: n => ({ text: `Survive ${n} seconds`, goal: n, of: r => Math.floor(r.t / TPS) }), sizes: [30, 45, 60] },
+    { id: "near", make: n => ({ text: `Pull off ${n} close calls in one run`, goal: n, of: r => r.near }), sizes: [3, 6, 10] },
     { id: "power", make: n => ({ text: `Catch ${n} power-ups in one run`, goal: n, of: r => r.powers }), sizes: [2, 3, 4] },
     { id: "gates", make: n => ({ text: `Fly through ${n} gates in one run`, goal: n, of: r => r.gates }), sizes: [2, 3, 4] },
-    { id: "score", make: n => ({ text: `Score ${n.toLocaleString()} points`, goal: n, of: r => r.score }), sizes: [800, 1500, 2500] }
+    { id: "score", make: n => ({ text: `Score ${n.toLocaleString()} points`, goal: n, of: r => r.score }), sizes: [600, 1200, 2000] }
   ];
   /* v26: a gates event holds 4 gates, so a gates mission is only offered when the daily course has a gates event
      that starts before 60 s and isn't hidden by the Mothership. Uses the same first rng draws as makeWorld's event shuffle. */
@@ -845,6 +849,8 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 28, date: "2026-11-10", notes: ["Daily missions are fairer: survive 30 to 60 seconds, score 600 to 2,000, or pull off 3 to 10 close calls", "Clear all three missions in a day for a +50 coin bonus", "New worlds open sooner (15, 35 and 60 ★), Prism Rings no longer takes a shield, and the third star is yours if you finish with full shields or beat the high score", "Weaving rocks are now 3D rocks with a violet ring on every world, and the scenery black hole is a faint swirl so you never mistake it for the real one"] },
+    { v: 27, date: "2026-11-09", notes: ["The Mothership now shows up at 1:00 instead of 1:45, so you'll actually get to fight it. A tougher one follows at 2:30", "The first Mothership is a little gentler, a fair first boss fight", "The first solar flare comes a bit earlier (0:48), and black holes no longer vanish behind the boss fights"] },
     { v: 26, date: "2026-11-08", notes: ["Gate missions are always doable now: they only show up on days with an early gates event, and ask for 2 to 4 gates", "The Supporter Pass is now looks only: Founder paint, badge, a gold trail and a Gold Rush explosion. No more XP boost, so everyone ranks up at the same pace", "Every rank-up now pays a flat 40 coins", "Your 🔥 streak counts any run, Levels included, and shows 0 if you miss a day"] },
     { v: 25, date: "2026-11-07", notes: ["Two new ships with special abilities, each with its own 3D body", "Halo: a ring-winged cruiser. Star Siphon restores a shield every 15 stars you catch", "Phantom: a stealth wing. Phase Shift keeps you phased twice as long after a hit, and close calls pay double", "Find them in the Hangar. Halo unlocks at Pilot Lv 6, Phantom at Lv 13"] },
     { v: 24, date: "2026-11-06", notes: ["New event: Solar Flares! The sun erupts and fires heat beams straight down the screen", "Each beam is marked with an orange column for a full second before it burns. Slide out of the way", "Ride out the flare for +100. Later flares fire two beams at once", "New trophy: Flare Dancer. Flares appear in daily runs and from the Prism Rings world on"] },
@@ -875,9 +881,9 @@ button.lk { cursor: pointer; }
     const TPS = CR.TPS;
     const WORLDS = [
       { name: "Neon Belt", need: 0, color: "#ff3ea5", shieldCut: 0, blurb: "Synthwave skies. Learn the ropes" },
-      { name: "Red Circuit", need: 18, color: "#ff6a3d", shieldCut: 0, blurb: "Molten machines. Longer, faster runs" },
-      { name: "Prism Rings", need: 45, color: "#7cf3ff", shieldCut: 1, blurb: "Ice and light. One shield less" },
-      { name: "Quantum Void", need: 75, color: "#b07bff", shieldCut: 1, blurb: "Reality glitches. One shield less" }
+      { name: "Red Circuit", need: 15, color: "#ff6a3d", shieldCut: 0, blurb: "Molten machines. Longer, faster runs" },
+      { name: "Prism Rings", need: 35, color: "#7cf3ff", shieldCut: 0, blurb: "Ice and light. Solar flares join in" },
+      { name: "Quantum Void", need: 60, color: "#b07bff", shieldCut: 1, blurb: "Reality glitches. One shield less" }
     ];
     const CYCLE = ["survive", "stars", "score", "close", "gates", "stars", "survive", "golden", "score", "finale"];
     const COUNT = WORLDS.length * 10;
@@ -920,6 +926,7 @@ button.lk { cursor: pointer; }
       const { seed, world } = pickSeed(n, type, durT);
       /* Finales end with a Mothership boss; tougher in later worlds. */
       if (type === "finale") CR.setBosses(world, [{ t0: durT - 22 * TPS, dur: 20 * TPS, lvl: w }]);
+      else CR.setBosses(world, []); /* v27: the daily Mothership now comes at 1:00, so plain levels clear it out */
       /* Black holes start in the second world; Neon Belt stays a gentle introduction. */
       if (w === 0) CR.setWells(world, []);
       /* Solar flares start in the third world, early in the run, before the first black hole. */
@@ -934,7 +941,8 @@ button.lk { cursor: pointer; }
       if (type === "gates") goal = 2 + (w >= 2 ? 1 : 0);
       if (type === "golden") goal = 1;
       const par = round(type === "score" ? goal * 1.2 : baseScore * (0.85 + w * 0.05), 50);
-      const L = { n, w, i, type, dur, durT, seed, world, ghost, goal, par, shieldCut: WORLDS[w].shieldCut, finale: type === "finale" };
+      const par3 = round(par * 1.3, 50);
+      const L = { n, w, i, type, dur, durT, seed, world, ghost, goal, par, par3, shieldCut: WORLDS[w].shieldCut, finale: type === "finale" };
       L.goalText = GOALS[type].text(L);
       cache.set(n, L);
       return L;
@@ -953,7 +961,8 @@ button.lk { cursor: pointer; }
       const checks = [
         { text: L.type === "survive" || L.type === "finale" ? "Reach the finish" : L.goalText + " and finish", ok: met },
         { text: `Score ${L.par.toLocaleString()}+`, ok: met && r.score >= L.par },
-        { text: "Take no hits", ok: met && r.hitIds.size === 0 }
+        /* v28 (audit #3): a hit no longer costs the third star if you score well or win the shield back */
+        { text: `Full shields at the end, or score ${L.par3.toLocaleString()}+`, ok: met && (r.lives >= r.cfg.lives || r.score >= L.par3) }
       ];
       return { met, stars: met ? checks.filter(c => c.ok).length : 0, checks };
     }
@@ -1142,20 +1151,19 @@ button.lk { cursor: pointer; }
           ctx.lineTo(W, H * 0.7); ctx.closePath(); ctx.fill();
         }
       },
+      /* v28 (audit #4): the scenery black hole is a faint swirl with no black core, so it never looks like the real hazard */
       hole(ctx, t, th, k) {
         const cx = W * 0.5, cy = H * 0.27;
-        const glow = ctx.createRadialGradient(cx, cy, 20, cx, cy, 190);
-        glow.addColorStop(0, hex(th.a, .35 * k)); glow.addColorStop(1, hex(th.a, 0));
-        ctx.fillStyle = glow; ctx.fillRect(cx - 200, cy - 200, 400, 400);
+        const glow = ctx.createRadialGradient(cx, cy, 10, cx, cy, 170);
+        glow.addColorStop(0, hex(th.a, .14 * k)); glow.addColorStop(1, hex(th.a, 0));
+        ctx.fillStyle = glow; ctx.fillRect(cx - 180, cy - 180, 360, 360);
         ctx.save(); ctx.translate(cx, cy);
-        for (let i = 0; i < 5; i++) {
-          ctx.rotate(0.02); ctx.strokeStyle = hex(i % 2 ? th.b : th.a, (.55 - i * .08) * k); ctx.lineWidth = 3 - i * .4;
-          ctx.setLineDash([18 + i * 6, 10 + i * 4]); ctx.lineDashOffset = -t * (1.6 - i * .2);
-          ctx.beginPath(); ctx.ellipse(0, 0, 64 + i * 15, 15 + i * 4, -0.2, 0, 6.283); ctx.stroke();
+        for (let i = 0; i < 4; i++) {
+          ctx.rotate(0.02); ctx.strokeStyle = hex(i % 2 ? th.b : th.a, (.2 - i * .035) * k); ctx.lineWidth = 1.6 - i * .25;
+          ctx.setLineDash([18 + i * 6, 12 + i * 4]); ctx.lineDashOffset = -t * (1.2 - i * .15);
+          ctx.beginPath(); ctx.ellipse(0, 0, 70 + i * 16, 16 + i * 4, -0.2, 0, 6.283); ctx.stroke();
         }
         ctx.setLineDash([]);
-        ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(0, 0, 32, 0, 6.283); ctx.fill();
-        ctx.strokeStyle = hex("#ffffff", .7 * k); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, 34, 0, 6.283); ctx.stroke();
         ctx.restore();
       },
       data(ctx, t, th, k) {
@@ -1611,6 +1619,7 @@ button.lk { cursor: pointer; }
   if (typeof save.musicOff !== "boolean") save.musicOff = !!save.muted; /* players who muted before keep silence */
   if (typeof save.tutDone !== "boolean") save.tutDone = save.runs > 0; /* players who already have runs skip the tips */
   save.levels = save.levels || {};
+  save.mAllDay = save.mAllDay || 0; /* v28: day the all-missions bonus was paid */
   /* Streak (v26): any finished run counts for the day. A missed day shows 0 right away, not only after the next daily run. */
   if (!(save.lastDay >= day - 1)) save.streak = 0;
   function bumpStreak() { if (save.lastDay !== day) { save.streak = save.lastDay === day - 1 ? save.streak + 1 : 1; save.lastDay = day; } }
@@ -1866,7 +1875,7 @@ button.lk { cursor: pointer; }
   /* ---------- RACE YOUR BEST (app-side; replays your own recorded inputs through window.CR.step) ----------
      save.pb = { day, score, t, cfg, in: [[ticksSincePrevChange, x, y], ...] } for today's best daily run. */
   save.racePb = save.racePb !== false;
-  const PB_VER = 24; /* bump when the course rules change, so an old recording never desyncs */
+  const PB_VER = 27; /* bump when the course rules change, so an old recording never desyncs */
   if (!save.pb || typeof save.pb !== "object" || !Array.isArray(save.pb.in) || save.pb.day !== day || save.pb.v !== PB_VER) save.pb = null;
   let pbRun = null, pbLive = null, pbEndToasted = false;
   const PB_COL = "#c58bff";
@@ -1932,7 +1941,7 @@ button.lk { cursor: pointer; }
 
   function missionHTML(r) {
     const done = MISSIONS.filter(m => missionDone(m.key)).length;
-    return `<div class="panel"><div class="panel-h"><span>Today's missions</span><span>${done}/3</span></div>` +
+    return `<div class="panel"><div class="panel-h"><span>Today's missions</span><span>${done}/3${done < 3 ? ` · all 3: +${ALL_BONUS} ◉` : save.mAllDay === day ? " · bonus ✓" : ""}</span></div>` +
       MISSIONS.map(m => {
         const d = missionDone(m.key);
         const prog = !d && r ? ` · ${Math.min(m.of(r), m.goal).toLocaleString()}/${m.goal.toLocaleString()}` : "";
@@ -2054,7 +2063,7 @@ button.lk { cursor: pointer; }
         ${L.finale ? `<div class="next">Mothership boss: dodge the <b style="color:var(--hurt)">red bullets</b>, catch ${CR.BOSS_HP} <b style="color:var(--tide)">◆ cores</b> to destroy it.</div>` : ""}
         <div class="crit"><div><span class="s ${best >= 1 ? "" : "off"}">★</span>${L.type === "survive" || L.type === "finale" ? "Reach the finish" : "Complete the goal and reach the finish"}</div>
           <div><span class="s ${best >= 2 ? "" : "off"}">★</span>Score ${L.par.toLocaleString()} or more</div>
-          <div><span class="s ${best >= 3 ? "" : "off"}">★</span>Don't take a single hit</div></div>
+          <div><span class="s ${best >= 3 ? "" : "off"}">★</span>Finish with full shields, or score ${L.par3.toLocaleString()}+</div></div>
         <button class="btn pulse" id="lv-go">${best ? "Play again" : "Play level"}</button></div>`;
     }
     o.innerHTML = `<div class="h-top"><h2>Levels</h2><span class="chip">★ <b style="color:var(--gold)">${total}</b>/${LV.COUNT * 3}</span></div>
@@ -2480,7 +2489,7 @@ button.lk { cursor: pointer; }
     const best = save.best[day] || 0;
     o.innerHTML = `<div class="eyebrow">${mode === "daily" ? `Daily No. ${day} · ${theme.name}` : `Random course · ${theme.name}`}</div>
       <h2>Meteor <span class="hl">Pilot</span></h2>
-      <div class="quick"><b>Drag anywhere</b>. Your ship flies just above your finger. Dodge meteors. Chain <b style="color:var(--gold)">★</b> for a combo. Skim past rocks for close calls. Watch for showers, gates, comets, golden stars, <b style="color:#c58bff">black holes</b> and <b style="color:#ff9a4d">solar flares</b>. Last to 1:45 to face the <b style="color:var(--hurt)">Mothership</b>. Beat the ghost from ${p[0]} ${p[1]}: <b>${ghost.score.toLocaleString()}</b>${best ? ` · your best <b>${best.toLocaleString()}</b>` : ""}</div>
+      <div class="quick"><b>Drag anywhere</b>. Your ship flies just above your finger. Dodge meteors. Chain <b style="color:var(--gold)">★</b> for a combo. Skim past rocks for close calls. Watch for showers, gates, comets, golden stars, <b style="color:#c58bff">black holes</b> and <b style="color:#ff9a4d">solar flares</b>. Last to 1:00 to face the <b style="color:var(--hurt)">Mothership</b>. Beat the ghost from ${p[0]} ${p[1]}: <b>${ghost.score.toLocaleString()}</b>${best ? ` · your best <b>${best.toLocaleString()}</b>` : ""}</div>
       <div class="duo"><button class="btn pulse" id="play">Play daily</button><button class="btn lvl" id="levels-btn">Levels ★ ${LV.total(save.levels)}</button></div>
       ${rankHTML()}
       ${missionHTML()}
@@ -2724,7 +2733,13 @@ button.lk { cursor: pointer; }
       save.coins += m.reward; runMissions.add(m.key); persist(); paintChips();
       if (live) { toast(`Mission done · +${m.reward} ◉`, true); sfx.mission(); }
     }
+    /* v28 (audit #2): a fixed bonus for clearing all three of the day's missions */
+    if (save.mAllDay !== day && MISSIONS.every(m => missionDone(m.key))) {
+      save.mAllDay = day; save.coins += ALL_BONUS; runMissions.add("all"); persist(); paintChips();
+      if (live) setTimeout(() => { toast(`All 3 missions · +${ALL_BONUS} ◉ bonus`, true); sfx.best(); }, 900);
+    }
   }
+  const ALL_BONUS = 50;
   // ---------- trophies (app-side; reads runs, never changes the rules) ----------
   save.ach = save.ach && typeof save.ach === "object" ? save.ach : {};
   save.rec = Object.assign({ stars: 0, near: 0, secs: 0, score: 0, mult: 1, golds: 0, gates: 0, novas: 0, ghostWins: 0, bosses: 0, wells: 0, flares: 0 }, save.rec || {});
@@ -2907,7 +2922,7 @@ button.lk { cursor: pointer; }
     const pbLine = pbLive ? `<div class="next" style="color:${pbDiff > 0 ? "var(--tide)" : PB_COL}">${pbDiff > 0 ? `You beat your best-run ghost by ${pbDiff.toLocaleString()}. This run is your new ghost.` : `${(-pbDiff).toLocaleString()} short of your best-run ghost`}</div>` : newBest && mode === "daily" ? `<div class="next" style="color:${PB_COL}">This run is now your best-run ghost. Race it next time.</div>` : "";
     trophyEnd(me, mode === "daily" && !me.quit && diff >= 0);
     persist(); paintChips();
-    const missionBonus = MISSIONS.filter(m => runMissions.has(m.key)).reduce((a, m) => a + m.reward, 0);
+    const missionBonus = MISSIONS.filter(m => runMissions.has(m.key)).reduce((a, m) => a + m.reward, 0) + (runMissions.has("all") ? ALL_BONUS : 0);
     const text = `Meteor Pilot ${mode === "daily" ? "No. " + day : "(random)"} ☄️\n${me.score.toLocaleString()} pts · ${CR.fmtTime(secs)} · ★${me.stars} · ×${me.maxMult}\n${diff >= 0 ? "Beat" : "Lost to"} the ghost from ${p[0]} by ${Math.abs(diff).toLocaleString()}`;
     const o = $("#over");
     o.innerHTML = `<div class="eyebrow ${newBest ? "hot" : ""}">${newBest ? "New best today" : mode === "daily" ? `Best today ${(save.best[day] || 0).toLocaleString()}` : "Run over"}</div>
@@ -3036,7 +3051,13 @@ button.lk { cursor: pointer; }
       ctx.save(); ctx.shadowColor = "#ff4f62"; ctx.shadowBlur = 20; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(a.x, a.y, r * .8, 0, 6.28); ctx.fill(); ctx.restore();
       return;
     }
-    if (!it.zig && M3.draw(ctx, a, t, theme ? theme.a : "#ff7a3d", it.gate >= 0)) {
+    /* v28 (audit #4): weaving rocks are real 3D rocks on every theme, marked by a violet rim */
+    if (M3.draw(ctx, a, t, it.zig ? "#b07bff" : theme ? theme.a : "#ff7a3d", it.gate >= 0)) {
+      if (it.zig) {
+        ctx.save(); ctx.strokeStyle = "rgba(20,6,40,.85)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(a.x, a.y, r + 2, 0, 6.283); ctx.stroke();
+        ctx.strokeStyle = "#c58bff"; ctx.lineWidth = 2; ctx.shadowColor = "#b07bff"; ctx.shadowBlur = lowGfx() ? 0 : 10;
+        ctx.beginPath(); ctx.arc(a.x, a.y, r + 2, 0, 6.283); ctx.stroke(); ctx.restore();
+      }
       if (state === "play" && r > 14 && !lowGfx() && Math.random() < 0.07) particles.push({ x: a.x + (Math.random() - .5) * r, y: a.y - r * .6, vx: (Math.random() - .5) * .6, vy: -.4 - Math.random() * .8, life: 16 + Math.random() * 14, color: Math.random() < .5 ? "#ffb35c" : (theme ? theme.a : "#ff7a3d") });
       return;
     }
