@@ -215,13 +215,15 @@ button.card { width: 100%; text-align: left; font: inherit; color: inherit; curs
 .btn:disabled { opacity: .4; cursor: default; animation: none; }
 .foot { font-size: .72rem; color: var(--muted); max-width: 420px; text-align: center; }
 /* first-run tips */
-.tip { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); width: min(86%, 290px); box-sizing: border-box; pointer-events: none;
+/* v29 (audit, first 10 minutes): tips sit just under the HUD, out of the lane where meteors come in */
+.tip { position: absolute; left: 50%; top: 10%; transform: translateX(-50%); width: min(86%, 290px); box-sizing: border-box; pointer-events: none;
   padding: 9px 14px 11px; border-radius: 14px; border: 1px solid var(--tide); background: rgba(7,10,26,.82); text-align: center;
   font-size: .9rem; line-height: 1.35; color: var(--ink); animation: drop .3s ease-out; box-shadow: 0 6px 24px rgba(0,0,0,.4); }
 .tip .step { display: block; font-family: var(--f-display); font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--tide); margin-bottom: 3px; }
 .tip b.g { color: var(--gold); } .tip b.t { color: var(--tide); }
 .tip.ok { border-color: var(--gold); }
 .tip.ok .step { color: var(--gold); }
+.stage.tipping .toast { top: calc(10% + 84px); }
 /* trophies */
 .trophies { justify-content: flex-start; align-items: stretch; text-align: left; gap: 10px; }
 .tgrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
@@ -849,6 +851,7 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 29, date: "2026-11-11", notes: ["New pilots start with Level 1, a short, gentle course, before taking on the full daily run", "The start screen is shorter: drag to fly, dodge rocks, grab ★", "First-run tips now sit just under the score bar, out of the way of incoming meteors"] },
     { v: 28, date: "2026-11-10", notes: ["Daily missions are fairer: survive 30 to 60 seconds, score 600 to 2,000, or pull off 3 to 10 close calls", "Clear all three missions in a day for a +50 coin bonus", "New worlds open sooner (15, 35 and 60 ★), Prism Rings no longer takes a shield, and the third star is yours if you finish with full shields or beat the high score", "Weaving rocks are now 3D rocks with a violet ring on every world, and the scenery black hole is a faint swirl so you never mistake it for the real one"] },
     { v: 27, date: "2026-11-09", notes: ["The Mothership now shows up at 1:00 instead of 1:45, so you'll actually get to fight it. A tougher one follows at 2:30", "The first Mothership is a little gentler, a fair first boss fight", "The first solar flare comes a bit earlier (0:48), and black holes no longer vanish behind the boss fights"] },
     { v: 26, date: "2026-11-08", notes: ["Gate missions are always doable now: they only show up on days with an early gates event, and ask for 2 to 4 gates", "The Supporter Pass is now looks only: Founder paint, badge, a gold trail and a Gold Rush explosion. No more XP boost, so everyone ranks up at the same pace", "Every rank-up now pays a flat 40 coins", "Your 🔥 streak counts any run, Levels included, and shows 0 if you miss a day"] },
@@ -2481,24 +2484,30 @@ button.lk { cursor: pointer; }
     fxDrawRings(g, PV.r); fxDrawParticles(g, PV.p); fxDrawBooms(g, PV.b);
   }
 
+  /* v29: a player with no runs yet gets Level 1 (18 s, no black holes or flares) instead of the full daily course */
+  const firstFlight = () => !save.runs && !LV.total(save.levels) && mode === "daily";
+  function playMain() { if (state === "menu" && firstFlight()) { audio(); playLevel(1); } else start(); }
   function showStart() {
     if (mode === "level") setup(true);
     curLevel = null;
     state = "menu";
     const o = $("#start"), p = world.partner;
-    const best = save.best[day] || 0;
-    o.innerHTML = `<div class="eyebrow">${mode === "daily" ? `Daily No. ${day} · ${theme.name}` : `Random course · ${theme.name}`}</div>
+    const best = save.best[day] || 0, first = firstFlight();
+    /* v29 (audit, first 10 minutes): one short line of instructions. A brand-new player starts on Level 1, a short gentle course */
+    o.innerHTML = `<div class="eyebrow">${first ? "First flight · Level 1" : mode === "daily" ? `Daily No. ${day} · ${theme.name}` : `Random course · ${theme.name}`}</div>
       <h2>Meteor <span class="hl">Pilot</span></h2>
-      <div class="quick"><b>Drag anywhere</b>. Your ship flies just above your finger. Dodge meteors. Chain <b style="color:var(--gold)">★</b> for a combo. Skim past rocks for close calls. Watch for showers, gates, comets, golden stars, <b style="color:#c58bff">black holes</b> and <b style="color:#ff9a4d">solar flares</b>. Last to 1:00 to face the <b style="color:var(--hurt)">Mothership</b>. Beat the ghost from ${p[0]} ${p[1]}: <b>${ghost.score.toLocaleString()}</b>${best ? ` · your best <b>${best.toLocaleString()}</b>` : ""}</div>
-      <div class="duo"><button class="btn pulse" id="play">Play daily</button><button class="btn lvl" id="levels-btn">Levels ★ ${LV.total(save.levels)}</button></div>
+      <div class="quick"><b>Drag to fly.</b> Dodge rocks, grab <b style="color:var(--gold)">★</b>.</div>
+      ${first ? "" : `<div class="next">Ghost ${p[0]} <b style="color:var(--ink)">${ghost.score.toLocaleString()}</b>${best ? ` · your best <b style="color:var(--ink)">${best.toLocaleString()}</b>` : ""}</div>`}
+      <div class="duo"><button class="btn pulse" id="play">${first ? "Play" : "Play daily"}</button><button class="btn lvl" id="levels-btn">Levels ★ ${LV.total(save.levels)}</button></div>
       ${rankHTML()}
       ${missionHTML()}
       ${loadoutHTML()}
       ${mode === "daily" && save.pb ? `<button class="btn alt" id="race-pb" aria-pressed="${save.racePb}" style="${save.racePb ? `border-color:${PB_COL};color:${PB_COL}` : ""}">Race my best (${save.pb.score.toLocaleString()}): ${save.racePb ? "On" : "Off"}</button>` : ""}
-      <div class="btns">${mode === "random" ? `<button class="btn alt" id="daily">Back to daily course</button>` : ""}<button class="btn alt" id="shop-btn">🛒 Shop${giftReady() ? " •" : ""}</button><button class="btn alt" id="trophies-btn">🏆 Trophies ${trophyCount()}/${TROPHIES.length}</button><button class="btn alt" id="settings-btn">⚙ Settings</button>${save.tutDone ? `<button class="btn alt" id="howto">Play with tips</button>` : ""}</div>
+      <div class="btns">${mode === "random" ? `<button class="btn alt" id="daily">Back to daily course</button>` : ""}${first ? `<button class="btn alt" id="play-daily">Daily course</button>` : ""}<button class="btn alt" id="shop-btn">🛒 Shop${giftReady() ? " •" : ""}</button><button class="btn alt" id="trophies-btn">🏆 Trophies ${trophyCount()}/${TROPHIES.length}</button><button class="btn alt" id="settings-btn">⚙ Settings</button>${save.tutDone ? `<button class="btn alt" id="howto">Play with tips</button>` : ""}</div>
       <details class="news"><summary>What's new · v${CHANGELOG[0].v}</summary><ul>${CHANGELOG[0].notes.map(n => `<li>${n}</li>`).join("")}</ul></details>`;
     hideOverlays(); o.hidden = false;
-    $("#play").onclick = start;
+    $("#play").onclick = playMain;
+    const pd = $("#play-daily"); if (pd) pd.onclick = start;
     $("#levels-btn").onclick = () => openLevels();
     $("#trophies-btn").onclick = () => openTrophies();
     $("#shop-btn").onclick = () => openShop();
@@ -2599,7 +2608,7 @@ button.lk { cursor: pointer; }
     if (e.key === "ArrowRight" || e.key === "d") { keys.r = true; e.preventDefault(); }
     if (e.key === "ArrowUp" || e.key === "w") { keys.u = true; e.preventDefault(); }
     if (e.key === "ArrowDown" || e.key === "s") { keys.d = true; e.preventDefault(); }
-    if ((e.key === " " || e.key === "Enter") && (state === "menu" || state === "over") && document.activeElement.tagName !== "BUTTON") { e.preventDefault(); start(); }
+    if ((e.key === " " || e.key === "Enter") && (state === "menu" || state === "over") && document.activeElement.tagName !== "BUTTON") { e.preventDefault(); playMain(); }
   });
   addEventListener("keyup", e => { if (e.key === "ArrowLeft" || e.key === "a") keys.l = false; if (e.key === "ArrowRight" || e.key === "d") keys.r = false; if (e.key === "ArrowUp" || e.key === "w") keys.u = false; if (e.key === "ArrowDown" || e.key === "s") keys.d = false; });
   document.addEventListener("visibilitychange", () => { last = performance.now(); acc = 0; if (document.hidden && state === "play") pause(); });
@@ -2835,12 +2844,12 @@ button.lk { cursor: pointer; }
   ];
   let tut = null;
   function tutStart() {
-    $("#tip").hidden = true;
+    $("#tip").hidden = true; stage.classList.remove("tipping");
     tut = save.tutDone ? null : { i: 0, phase: "wait", n: 0, moved: 0, px: W / 2, py: SHIP_Y, stars0: 0 };
   }
   function tutFinish(cheer) {
     if (!tut) return;
-    tut = null; $("#tip").hidden = true;
+    tut = null; $("#tip").hidden = true; stage.classList.remove("tipping");
     save.tutDone = true; persist();
     if (cheer) { toast("You're ready. Beat the ghost!", true); sfx.mission(); }
   }
@@ -2848,7 +2857,7 @@ button.lk { cursor: pointer; }
     const el = $("#tip");
     el.className = "tip" + (tut.phase === "ok" ? " ok" : "");
     el.innerHTML = `<span class="step">${tut.phase === "ok" ? "✓ Nice" : `Tip ${tut.i + 1} of ${TIPS.length}`}</span>${TIPS[tut.i]}`;
-    el.hidden = false;
+    el.hidden = false; stage.classList.add("tipping");
   }
   function tutTick() {
     if (!tut) return;
@@ -2864,7 +2873,7 @@ button.lk { cursor: pointer; }
     } else if (T.phase === "ok") {
       if ($("#tip").hidden) $("#tip").hidden = false;
       if (T.n >= 50) {
-        T.i++; T.phase = "wait"; T.n = 0; $("#tip").hidden = true;
+        T.i++; T.phase = "wait"; T.n = 0; $("#tip").hidden = true; stage.classList.remove("tipping");
         if (T.i >= TIPS.length) tutFinish(true);
       }
     }
