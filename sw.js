@@ -1,5 +1,5 @@
 /* Meteor Pilot offline support. Bump VERSION whenever you upload a new index.html so players get the update. */
-const VERSION = "meteor-pilot-v29";
+const VERSION = "meteor-pilot-v31";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png", "icons/favicon.png"];
 
 self.addEventListener("install", e => {
@@ -12,10 +12,14 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  // the game page: try the network first so updates arrive, fall back to the cached copy offline
+  // the game page: try the network first so updates arrive, fall back to the cached copy offline.
+  // Only a good response for the game page itself refreshes the cached game (never privacy.html, a 404 or a Wi-Fi login page).
   if (req.mode === "navigate") {
-    e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put("index.html", copy)); return r; })
-      .catch(() => caches.match("index.html")));
+    const isGame = url.origin === location.origin && (url.pathname.endsWith("/") || url.pathname.endsWith("/index.html"));
+    e.respondWith(fetch(req).then(r => {
+      if (isGame && r.ok && r.type === "basic") { const copy = r.clone(); e.waitUntil(caches.open(VERSION).then(c => c.put("index.html", copy))); }
+      return r;
+    }).catch(async () => (isGame ? null : await caches.match(req)) || caches.match("index.html")));
     return;
   }
   // fonts and our own files: cached copy first, refreshed in the background

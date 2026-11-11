@@ -851,6 +851,8 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 31, date: "2026-11-11", notes: ["A quick double tap on End run no longer skips your results screen. You always see your score, coins and trophies", "Fixed a rare case where ending a run could pay out its coins and XP twice"] },
+    { v: 30, date: "2026-11-11", notes: ["Playing offline from your home screen always opens the game now, even after you've viewed another page", "Leaving the app during the 3-2-1 countdown pauses the game again, so you never come back to a run already moving", "A damaged save no longer leaves a blank screen: the game repairs it, and offers a reset if it can't"] },
     { v: 29, date: "2026-11-11", notes: ["New pilots start with Level 1, a short, gentle course, before taking on the full daily run", "The start screen is shorter: drag to fly, dodge rocks, grab ★", "First-run tips now sit just under the score bar, out of the way of incoming meteors"] },
     { v: 28, date: "2026-11-10", notes: ["Daily missions are fairer: survive 30 to 60 seconds, score 600 to 2,000, or pull off 3 to 10 close calls", "Clear all three missions in a day for a +50 coin bonus", "New worlds open sooner (15, 35 and 60 ★), Prism Rings no longer takes a shield, and the third star is yours if you finish with full shields or beat the high score", "Weaving rocks are now 3D rocks with a violet ring on every world, and the scenery black hole is a faint swirl so you never mistake it for the real one"] },
     { v: 27, date: "2026-11-09", notes: ["The Mothership now shows up at 1:00 instead of 1:45, so you'll actually get to fight it. A tougher one follows at 2:30", "The first Mothership is a little gentler, a fair first boss fight", "The first solar flare comes a bit earlier (0:48), and black holes no longer vanish behind the boss fights"] },
@@ -1618,7 +1620,18 @@ button.lk { cursor: pointer; }
 
   // ---------- save data ----------
   let save = (() => { try { return JSON.parse(localStorage.getItem("cometrun:v2")) || {}; } catch (e) { return {}; } })();
+  if (!save || typeof save !== "object" || Array.isArray(save)) save = {};
   save = Object.assign({ coins: 0, owned: ["comet"], skin: "comet", best: {}, missions: {}, lastDay: 0, streak: 0, muted: false, runs: 0, trails: ["none"], trail: "none" }, save);
+  /* v30 (QA 3): a field with the wrong type (say null) is reset to its default instead of crashing the start screen */
+  const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+  for (const k of ["best", "missions", "levels", "up", "rec", "ach", "bought"]) if (k in save && !isObj(save[k])) save[k] = {};
+  if (!Array.isArray(save.owned)) save.owned = ["comet"];
+  if (!save.owned.includes("comet")) save.owned.unshift("comet");
+  if (!Array.isArray(save.trails)) save.trails = ["none"];
+  if (!save.trails.includes("none")) save.trails.unshift("none");
+  if ("cos" in save && !Array.isArray(save.cos)) save.cos = [];
+  if (typeof save.skin !== "string") save.skin = "comet";
+  if (typeof save.trail !== "string") save.trail = "none";
   if (typeof save.musicOff !== "boolean") save.musicOff = !!save.muted; /* players who muted before keep silence */
   if (typeof save.tutDone !== "boolean") save.tutDone = save.runs > 0; /* players who already have runs skip the tips */
   save.levels = save.levels || {};
@@ -1913,7 +1926,6 @@ button.lk { cursor: pointer; }
   }
 
   async function start() {
-    if (state === "starting") return;
     audio(); sfx.tap();
     if (mode !== "level") curLevel = null;
     const cfg = loadout();
@@ -2096,7 +2108,10 @@ button.lk { cursor: pointer; }
       setTimeout(() => finishLevel(true), 900);
     }
   }
+  /* v31 (QA 6): a results screen ignores taps for its first 400 ms, so a double tap on "End run" can't skip it */
+  function guardOver(o) { o.style.pointerEvents = "none"; clearTimeout(guardOver.h); guardOver.h = setTimeout(() => { o.style.pointerEvents = ""; }, 400); }
   function finishLevel(finished) {
+    if (state === "over") return; /* v31 (QA 6): a run is only settled once */
     state = "over";
     tutFinish(false);
     const L = curLevel, n = L.n, res = LV.rate(L, me, finished);
@@ -2126,7 +2141,7 @@ button.lk { cursor: pointer; }
       ${rankHTML(xp)}
       <div class="duo">${res.met && nextOk ? `<button class="btn pulse" id="lv-next">Next level</button><button class="btn alt" id="lv-retry">Retry</button>` : `<button class="btn pulse" id="lv-retry">${res.met ? "Play again" : "Retry"}</button>`}</div>
       <div class="btns"><button class="btn alt" id="lv-map">Level map</button><button class="btn alt" id="ships">Hangar</button><button class="btn alt" id="over-tro">🏆 Trophies</button></div>`;
-    o.hidden = false;
+    o.hidden = false; guardOver(o);
     $("#over-tro").onclick = () => openTrophies(backToOver);
     if (res.met) setTimeout(() => sfx.mission(), 300);
     if (ups.length) setTimeout(() => { sfx.best(); toast(`Rank up! Pilot Lv ${save.pilot}`, true); }, 700);
@@ -2611,8 +2626,9 @@ button.lk { cursor: pointer; }
     if ((e.key === " " || e.key === "Enter") && (state === "menu" || state === "over") && document.activeElement.tagName !== "BUTTON") { e.preventDefault(); playMain(); }
   });
   addEventListener("keyup", e => { if (e.key === "ArrowLeft" || e.key === "a") keys.l = false; if (e.key === "ArrowRight" || e.key === "d") keys.r = false; if (e.key === "ArrowUp" || e.key === "w") keys.u = false; if (e.key === "ArrowDown" || e.key === "s") keys.d = false; });
-  document.addEventListener("visibilitychange", () => { last = performance.now(); acc = 0; if (document.hidden && state === "play") pause(); });
-  addEventListener("blur", () => { if (state === "play") pause(); });
+  document.addEventListener("visibilitychange", () => { last = performance.now(); acc = 0; if (document.hidden && (state === "play" || state === "countdown")) pause(); });
+  /* v30 (QA 2): leaving the app during the 3-2-1 resume countdown pauses again */
+  addEventListener("blur", () => { if (state === "play" || state === "countdown") pause(); });
   let resumeAt = 0;
   function pause() {
     if (state !== "play" && state !== "countdown") return;
@@ -2627,7 +2643,7 @@ button.lk { cursor: pointer; }
     const lbl = () => { $("#p-music").textContent = `Music: ${save.musicOff ? "Off" : "On"}`; $("#p-sfx").textContent = `Sound FX: ${save.muted ? "Off" : "On"}`; };
     lbl(); $("#p-music").onclick = () => { toggleMusic(); lbl(); }; $("#p-sfx").onclick = () => { toggleSfx(); lbl(); };
     $("#p-set").onclick = () => openSettings(() => { $("#paused").hidden = false; lbl(); $("#resume").focus({ preventScroll: true }); });
-    $("#resume").onclick = resume; $("#quit").onclick = () => { o.hidden = true; me.alive = false; me.quit = true; state = "dying"; gameOver(); };
+    $("#resume").onclick = resume; $("#quit").onclick = () => { if (state !== "paused") return; o.hidden = true; me.alive = false; me.quit = true; state = "dying"; gameOver(); };
     $("#resume").focus({ preventScroll: true });
   }
   function resume() {
@@ -2911,6 +2927,7 @@ button.lk { cursor: pointer; }
   // ---------- game over ----------
   function backToOver() { state = "over"; $("#over").hidden = false; }
   function gameOver() {
+    if (state === "over") return; /* v31 (QA 6): never pay out a run twice */
     if (curLevel) return finishLevel(false);
     state = "over";
     tutFinish(false);
@@ -2948,7 +2965,7 @@ button.lk { cursor: pointer; }
       ${nextUnlockHTML()}
       <div class="btns"><button class="btn alt" id="ships">Hangar</button><button class="btn alt" id="copy">Copy score</button><button class="btn alt" id="swap">${mode === "daily" ? "Random course" : "Daily course"}</button><button class="btn alt" id="over-tro">🏆 Trophies</button></div>
       <pre class="share" id="share">${text}</pre>`;
-    o.hidden = false;
+    o.hidden = false; guardOver(o);
     $("#over-tro").onclick = () => openTrophies(backToOver);
     $("#again").onclick = start;
     $("#go-levels").onclick = () => openLevels();
@@ -3511,9 +3528,22 @@ button.lk { cursor: pointer; }
     requestAnimationFrame(frame);
   }
 
-  setup(true);
-  paintChips();
-  showStart();
+  /* v30 (QA 3): if the start screen still can't draw from this save, offer a reset instead of a blank screen */
+  function rescue(err) {
+    const o = $("#start"); let armed = false;
+    o.innerHTML = `<h2>Meteor <span class="hl">Pilot</span></h2>
+      <div class="quick">Your saved game couldn't be loaded on this device.</div>
+      <button class="btn" id="rescue">Reset game data</button>
+      <p class="fine">This erases coins, levels and unlocks on this device so the game can start fresh.</p>`;
+    o.hidden = false;
+    $("#rescue").onclick = () => {
+      if (!armed) { armed = true; $("#rescue").textContent = "Tap again to erase"; return; }
+      try { localStorage.removeItem("cometrun:v2"); } catch (e) {}
+      location.reload();
+    };
+    try { console.warn("Meteor Pilot: start failed", err); } catch (e) {}
+  }
+  try { setup(true); paintChips(); showStart(); } catch (err) { rescue(err); }
   fit(); resize();
   requestAnimationFrame(t => { last = t; frame(t); });
 })();
