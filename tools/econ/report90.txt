@@ -1,0 +1,89 @@
+## run distributions (tier 0 = Comet, no upgrades; tier 2 = Void + 4/4/4/4)
+| casual t0 | 25/41/58 | 432/1033/2595 | 2/4/13 | 1/3/6 | 2 | 23% | 8% |
+| casual t2 | 46/53/73 | 1038/1673/4967 | 3/6/17 | 3/4/7 | 3 | 58% | 22% |
+| regular t0 | 46/59/87 | 1034/1919/4388 | 6/10/24 | 3/4/7 | 3 | 52% | 27% |
+| regular t2 | 70/87/103 | 3064/5756/7879 | 8/18/27 | 2/4/6 | 5 | 88% | 67% |
+| strong t0 | 67/87/103 | 3122/4613/7152 | 12/26/38 | 3/6/7 | 5 | 82% | 70% |
+| strong t2 | 88/105/119 | 6678/9803/12654 | 21/33/44 | 3/6/7 | 5 | 93% | 87% |
+
+## before  (catalog 21800)
+
+### casual
+| Day | Rank | Ships | Level ★ | Upgr. | Cosmetics | Coins earned (total) | Unspent |
+| 1 | 4 | 3/7 | 3 | 4/20 | 0 | 467 | 37 |
+| 3 | 7 | 4/7 | 11 | 5/20 | 0 | 1204 | 194 |
+| 7 | 12 | 5/7 | 26 | 5/20 | 0 | 2022 | 512 |
+| 14 | 17 | 6/7 | 32 | 5/20 | 0 | 3182 | 872 |
+| 21 | 20 | 7/7 | 42 | 7/20 | 4 | 4136 | 26 |
+| 30 | 23 | 7/7 | 44 | 9/20 | 7 | 4975 | 145 |
+| 45 | 29 | 7/7 | 60 | 12/20 | 10 | 7016 | 286 |
+| 60 | 34 | 7/7 | 84 | 15/20 | 13 | 9170 | 290 |
+| 90 | 47 | 7/7 | 103 | 18/20 | 18 | 14639 | 139 |
+{"ships":{"ember":1,"aurora":1,"nebula":3,"halo":6,"void":10,"phantom":17},"worlds":[6,17,45],"legend":20,"rank":47,"stars":103,"earned":14639,"bank":139,"unbought":7300,"minutes":219,"cpm":66.8,"deadDays":38,"missionsPerDay":1.55,"allClearDays":10,"playedDays":74,"longestDry":4,"upsMaxed":2,"src":{"gift":2220,"run":1884,"trophy":565,"levelStars":1720,"rank":1840,"mission":6410}}
+
+### regular
+| Day | Rank | Ships | Level ★ | Upgr. | Cosmetics | Coins earned (total) | Unspent |
+| 1 | 10 | 5/7 | 8 | 4/20 | 0 | 1356 | 26 |
+| 3 | 21 | 6/7 | 9 | 4/20 | 0 | 2654 | 524 |
+| 7 | 31 | 7/7 | 58 | 9/20 | 7 | 4833 | 3 |
+| 14 | 44 | 7/7 | 92 | 13/20 | 13 | 8353 | 323 |
+| 21 | 58 | 7/7 | 100 | 16/20 | 15 | 11572 | 422 |
+| 30 | 69 | 7/7 | 110 | 18/20 | 18 | 15095 | 595 |
+| 45 | 86 | 7/7 | 114 | 20/20 | 20 | 20388 | 988 |
+| 60 | 101 | 7/7 | 114 | 20/20 | 22 | 26198 | 4398 |
+| 90 | 129 | 7/7 | 114 | 20/20 | 22 | 38174 | 16374 |
+{"ships":{"ember":1,"aurora":1,"nebula":1,"halo":1,"void":3,"phantom":4},"worlds":[4,5,9],"legend":3,"rank":129,"stars":114,"earned":38174,"bank":16374,"unbought":0,"minutes":1120,"cpm":34.1,"deadDays":56,"missionsPerDay":2.62,"allClearDays":57,"playedDays":86,"longestDry":40,"upsMaxed":4,"src":{"gift":2580,"run":12269,"mission":15600,"rank":5120,"trophy":655,"levelStars":1950}}
+
+### strong
+| Day | Rank | Ships | Level ★ | Upgr. | Cosmetics | Coins earned (total) | Unspent |
+| 1 | 27 | 6/7 | 9 | 6/20 | 0 | 2693 | 283 |
+| 3 | 45 | 7/7 | 46 | 11/20 | 7 | 5741 | 211 |
+| 7 | 74 | 7/7 | 88 | 16/20 | 15 | 11484 | 334 |
+| 14 | 114 | 7/7 | 114 | 20/20 | 21 | 20663 | 63 |
+| 21 | 142 | 7/7 | 114 | 20/20 | 22 | 28872 | 7072 |
+| 30 | 174 | 7/7 | 114 | 20/20 | 22 | 39871 | 18071 |
+| 45 | 214 | 7/7 | 114 | 20/20 | 22 | 56504 | 34704 |
+| 60 | 251 | 7/7 | 114 | 20/20 | 22 | 74399 | 52599 |
+| 90 | 310 | 7/7 | 114 | 20/20 | 22 | 108055 | 86255 |
+{"ships":{"ember":1,"aurora":1,"nebula":1,"halo":1,"void":1,"phantom":2},"worlds":[3,3,4],"legend":1,"rank":310,"stars":114,"earned":108055,"bank":86255,"unbought":0,"minutes":3784,"cpm":28.6,"deadDays":75,"missionsPerDay":2.99,"allClearDays":89,"playedDays":90,"longestDry":75,"upsMaxed":4,"src":{"gift":2700,"levelStars":1960,"run":69820,"trophy":655,"rank":12360,"mission":20560}}
+
+## after  (catalog 40160)
+
+### casual
+| Day | Rank | Ships | Level ★ | Upgr. | Cosmetics | Coins earned (total) | Unspent |
+| 1 | 2 | 2/7 | 2 | 0/20 | 0 | 118 | 18 |
+| 3 | 5 | 3/7 | 7 | 5/20 | 0 | 777 | 57 |
+| 7 | 7 | 4/7 | 7 | 7/20 | 3 | 1898 | 98 |
+| 14 | 10 | 5/7 | 23 | 10/20 | 8 | 3911 | 181 |
+| 21 | 11 | 5/7 | 38 | 12/20 | 13 | 5876 | 86 |
+| 30 | 13 | 6/7 | 42 | 12/20 | 16 | 7610 | 220 |
+| 45 | 15 | 6/7 | 57 | 15/20 | 20 | 10176 | 186 |
+| 60 | 17 | 7/7 | 77 | 16/20 | 26 | 14013 | 203 |
+| 90 | 20 | 7/7 | 98 | 20/20 | 37 | 22220 | 160 |
+{"ships":{"ember":1,"aurora":3,"halo":7,"nebula":14,"void":26,"phantom":56},"worlds":[12,17,41],"legend":84,"rank":20,"stars":98,"earned":22220,"bank":160,"unbought":18100,"minutes":212,"cpm":104.7,"deadDays":20,"missionsPerDay":1.54,"allClearDays":12,"playedDays":74,"longestDry":3,"upsMaxed":4,"src":{"gift":3750,"levelStars":1670,"run":4430,"rank":1615,"trophy":565,"mission":6390,"streak":200,"comeback":400,"mastery":650,"weekly":2050,"collection":500}}
+
+### regular
+| Day | Rank | Ships | Level ★ | Upgr. | Cosmetics | Coins earned (total) | Unspent |
+| 1 | 6 | 3/7 | 9 | 7/20 | 1 | 1274 | 214 |
+| 3 | 10 | 5/7 | 31 | 8/20 | 7 | 3185 | 115 |
+| 7 | 14 | 6/7 | 55 | 12/20 | 13 | 6097 | 207 |
+| 14 | 18 | 7/7 | 91 | 15/20 | 27 | 11853 | 313 |
+| 21 | 21 | 7/7 | 106 | 17/20 | 37 | 16780 | 20 |
+| 30 | 23 | 7/7 | 114 | 18/20 | 45 | 21557 | 597 |
+| 45 | 27 | 7/7 | 114 | 20/20 | 58 | 29826 | 166 |
+| 60 | 30 | 7/7 | 114 | 20/20 | 69 | 38614 | 1454 |
+| 90 | 35 | 7/7 | 114 | 20/20 | 80 | 56106 | 15946 |
+{"ships":{"ember":1,"aurora":1,"halo":2,"nebula":3,"void":6,"phantom":12},"worlds":[3,5,7],"legend":18,"rank":35,"stars":114,"earned":56106,"bank":15946,"unbought":0,"minutes":1111,"cpm":50.5,"deadDays":24,"missionsPerDay":2.6,"allClearDays":53,"playedDays":86,"longestDry":3,"upsMaxed":4,"src":{"gift":4385,"levelStars":1950,"run":23091,"rank":3115,"trophy":655,"mission":15310,"mastery":1050,"collection":500,"weekly":5650,"streak":200,"comeback":200}}
+
+### strong
+| Day | Rank | Ships | Level ★ | Upgr. | Cosmetics | Coins earned (total) | Unspent |
+| 1 | 11 | 4/7 | 9 | 7/20 | 4 | 2160 | 360 |
+| 3 | 17 | 6/7 | 66 | 11/20 | 10 | 5725 | 735 |
+| 7 | 23 | 7/7 | 78 | 13/20 | 31 | 11245 | 255 |
+| 14 | 29 | 7/7 | 114 | 18/20 | 45 | 18720 | 560 |
+| 21 | 34 | 7/7 | 114 | 20/20 | 58 | 25140 | 280 |
+| 30 | 38 | 7/7 | 114 | 20/20 | 66 | 33085 | 425 |
+| 45 | 44 | 7/7 | 114 | 20/20 | 73 | 46295 | 6135 |
+| 60 | 48 | 7/7 | 114 | 20/20 | 76 | 59460 | 19300 |
+| 90 | 55 | 7/7 | 114 | 20/20 | 81 | 85470 | 45310 |
+{"ships":{"ember":1,"aurora":1,"halo":1,"nebula":2,"void":2,"phantom":4},"worlds":[2,2,3],"legend":5,"rank":55,"stars":114,"earned":85470,"bank":45310,"unbought":0,"minutes":3790,"cpm":22.6,"deadDays":34,"missionsPerDay":2.99,"allClearDays":89,"playedDays":90,"longestDry":3,"upsMaxed":4,"src":{"gift":4580,"run":45000,"mission":20560,"rank":5115,"trophy":655,"mastery":1050,"levelStars":1960,"collection":500,"weekly":5850,"streak":200}}
