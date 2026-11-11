@@ -8,3 +8,5 @@ Items from `docs/EXPERT-AUDIT-v25.md` that are done, by version. The update task
 - **v29** (2026-11-11): audit improvement 1 (new pilots start with Level 1 before the daily run), shorter start screen, first-run tips moved under the score bar.
 - **v30** (2026-11-11): QA 1 (offline launch always opens the game; sw.js fix), QA 2 (countdown pauses on app switch), QA 3 (damaged save repaired or reset).
 - **v31** (2026-11-11): QA 6 (double tap on End run no longer skips results or pays twice).
+- **v32** (2026-11-11): Mission 1 (radio comms, crew portraits Vega/Bolt/Kestrel, mission intro with LAUNCH, mid-run radio lines).
+- **v33** (2026-11-11): Mission 2 (chapter 1 MISSIONS data: 10 story missions, crew debriefs, kind loss lines, Bolt tune-up after 10 misses).
