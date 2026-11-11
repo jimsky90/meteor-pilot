@@ -10,3 +10,5 @@ Items from `docs/EXPERT-AUDIT-v25.md` that are done, by version. The update task
 - **v31** (2026-11-11): QA 6 (double tap on End run no longer skips results or pays twice).
 - **v32** (2026-11-11): Mission 1 (radio comms, crew portraits Vega/Bolt/Kestrel, mission intro with LAUNCH, mid-run radio lines).
 - **v33** (2026-11-11): Mission 2 (chapter 1 MISSIONS data: 10 story missions, crew debriefs, kind loss lines, Bolt tune-up after 10 misses).
+- **v34** (2026-11-11): Mission 3 (boss entrance cinematic, light-returns win effect).
+- **v35** (2026-11-11): Mission 4 (beacon map replaces the level grid).
