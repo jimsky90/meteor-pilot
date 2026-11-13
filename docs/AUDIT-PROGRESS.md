@@ -12,3 +12,7 @@ Items from `docs/EXPERT-AUDIT-v25.md` that are done, by version. The update task
 - **v33** (2026-11-11): Mission 2 (chapter 1 MISSIONS data: 10 story missions, crew debriefs, kind loss lines, Bolt tune-up after 10 misses).
 - **v34** (2026-11-11): Mission 3 (boss entrance cinematic, light-returns win effect).
 - **v35** (2026-11-11): Mission 4 (beacon map replaces the level grid).
+- **v36** (2026-11-11): Fun 2 (fever), Fun 3 (so-close results, instant retry).
+- **v37** (2026-11-11): Fun 1 (challenge links).
+- **v38–v43** (2026-11-11/12): Mission 5 (mission types: Escort, Rescue, Blackout, Race the Rival, Heist, Light the Beacon).
+- **v44** (2026-11-12): Mission 6 part 1 (Chapter 2 "The Dark Belt" story missions, Nova).

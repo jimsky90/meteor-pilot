@@ -278,6 +278,30 @@ button.card { width: 100%; text-align: left; font: inherit; color: inherit; curs
 @keyframes blit { from { filter: saturate(.25) brightness(.7); } }
 .skipbrief { position: absolute; left: 50%; top: 52%; transform: translateX(-50%); min-height: 44px; }
 .tapnext { position: absolute; left: 0; right: 0; top: calc(52% - 26px); text-align: center; font-family: var(--f-display); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); pointer-events: none; }
+/* v36 (fun plan 3): results screen extras. A gold NEW BEST stamp, a "so close" bar, and one next-goal line */
+.stamp { font-family: var(--f-display); font-weight: 700; font-size: 20px; letter-spacing: .14em; color: var(--gold); border: 3px solid var(--gold); border-radius: 8px;
+  padding: 4px 14px; margin-top: 6px; transform: rotate(-6deg); box-shadow: 0 0 18px -4px rgba(255,204,77,.8), inset 0 0 10px rgba(255,204,77,.25); animation: stampin .5s cubic-bezier(.2,1.5,.4,1) both; }
+.stamp.calm { animation: none; }
+@keyframes stampin { from { transform: rotate(-16deg) scale(2.2); opacity: 0; } }
+.close { width: 100%; max-width: 300px; display: grid; gap: 5px; }
+.close b { font-family: var(--f-display); font-size: 15px; letter-spacing: .03em; color: var(--ink); }
+.close .bar { height: 8px; }
+.close .bar i { transition: width .7s ease-out; }
+.nextgoal { width: 100%; max-width: 300px; box-sizing: border-box; display: grid; gap: 5px; text-align: left; font-size: 14px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--rule); background: rgba(12,17,42,.7); }
+.nextgoal .ng { display: flex; gap: 8px; align-items: baseline; }
+.nextgoal small { font-family: var(--f-display); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--tide); flex: none; }
+.nextgoal .bar { height: 4px; }
+.nextgoal .bar i { background: linear-gradient(90deg, var(--tide), #8ca0ff); }
+/* v37 (fun plan 1): challenge links. A name box + share button on results, and the challenge card */
+.chalbox { width: 100%; max-width: 300px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; align-items: center; }
+.chalbox .tagin { font-size: 15px; padding: 9px 10px; min-width: 0; width: 100%; box-sizing: border-box; }
+.chalbox .btn.alt { white-space: nowrap; }
+.chalmsg { width: 100%; max-width: 300px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.chalmsg input { width: 100%; box-sizing: border-box; margin-top: 4px; font: 12px ui-monospace, Menlo, monospace; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--rule); background: rgba(7,10,26,.8); color: var(--ink); }
+.chalcard { width: 100%; max-width: 300px; box-sizing: border-box; display: grid; gap: 10px; justify-items: center; padding: 16px 14px; border-radius: 16px; border: 1px solid var(--tide); background: rgba(12,17,42,.85); box-shadow: 0 0 24px -8px rgba(79,224,207,.6); }
+.chalcard .shipimg { width: 56px; height: 56px; }
+.chalcard .quick { color: var(--ink); font-size: 17px; max-width: 26ch; }
+.chalcard .quick b.g { color: var(--gold); }
 /* trophies */
 .trophies { justify-content: flex-start; align-items: stretch; text-align: left; gap: 10px; }
 .tgrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
@@ -354,11 +378,12 @@ button.lk { cursor: pointer; }
   <div class="overlay levels" id="levels" hidden></div>
   <div class="overlay trophies" id="trophies" hidden></div>
   <div class="overlay settings" id="settings" hidden></div>
+  <div class="overlay" id="chal" hidden></div>
   <button class="pausebtn" id="pausebtn" aria-label="Pause" hidden>❚❚</button>
   <div class="toast" id="toast" hidden></div>
 </div>
 
-<div class="foot">Same course for everyone each day. The ghost is a bot for now, standing in for another player's recorded run. Keyboard: arrow keys or WASD, Space to play.</div>
+<div class="foot">Same course for everyone each day. Race the ghost, or send a friend a challenge link. Keyboard: arrow keys or WASD, Space to play.</div>
 
 <script>
 /* Meteor Pilot core: deterministic world, scoring rules, ghost bot, missions. No DOM. */
@@ -635,11 +660,124 @@ button.lk { cursor: pointer; }
     return { cfg, keep: cfg.keep, x: W / 2, y: SHIP_Y, lives: cfg.lives, inv: 0, stars: 0, got: new Set(), alive: true, t: 0, score: 0, bonus: 0,
       combo: 0, mult: 1, maxMult: 1, magnet: 0, smashed: new Set(), close: new Set(), hitIds: new Set(),
       nearDone: new Set(), near: 0, powers: 0, gates: 0, gateHit: new Set(), gateDone: new Set(), golds: 0,
-      bossHp: [], bossKill: [], bossHurt: [], cores: new Set(), coreCount: 0, bossesDown: 0, wells: 0, flares: 0, siphons: 0 };
+      bossHp: [], bossKill: [], bossHurt: [], cores: new Set(), coreCount: 0, bossesDown: 0, wells: 0, flares: 0, siphons: 0,
+      fever: 0, feverMax: 0, feverArmed: true, fevers: 0, feverPts: 0, escHp: null, blocks: 0, escLost: false, pods: 0, podLost: 0, podDone: new Set(), lamp: 0, frags: 0, fragDone: new Set(), spotted: 0, motes: 0, moteDone: new Set(), beaconLit: null };
   }
   /* Ship abilities (v25). siphon: every SIPHON_EVERY stars restores a shield. phase: hits leave you phased twice as long, close calls pay double. */
   const SIPHON_EVERY = 15;
   const invFor = r => r.cfg.ability === "phase" ? 150 : 75;
+  /* Fever (v36, fun plan 2): reaching ×5 starts Fever. Stars pay ×2 on top of the multiplier for 6 s, or 8 s if it starts
+     during an event (shower, gates, star rain, comets, black hole, solar flare or Mothership). A hit ends it at once; it can
+     only start again after the multiplier drops below ×5 and climbs back. Ticks only, so replays stay exact. */
+  const FEVER_T = TPS * 6, FEVER_EVENT_T = TPS * 8;
+  function eventAt(world, t) {
+    if (world.events) for (const e of world.events) if (t >= e.t && t < e.t + e.dur && !eventHidden(world, e)) return true;
+    if (wellAt(world, t)) return true;
+    if (world.flaresLive) for (const f of world.flaresLive) if (t >= f.t && t < f.t + f.dur) return true;
+    if (world.bosses) for (const b of world.bosses) if (t >= b.t0 && t < b.t0 + b.dur) return true;
+    return false;
+  }
+  function endFever(r, ev) { if (r.fever > 0) { r.fever = 0; ev.push({ type: "feverEnd", hit: true, pts: r.feverPts }); } }
+
+  /* ---------- Escort (v38, mission plan 5): a slow Light Ship drifts on a fixed path above you. Rocks that reach it cost it
+     one of its 3 hit points (3 and it turns back, ending the run). While you fly inside its link ring, your shields join:
+     any rock you touch is blocked (smashed, +20 × combo) instead of hurting you. Ticks only, so replays stay exact. ---------- */
+  const ESC_Y = 440, ESC_R = 16, ESC_LINK = 84;
+  function setEscort(world, spec) { world.escort = spec ? { hp: spec.hp || 3, until: spec.until || MAX_T } : null; return world; }
+  function escortAt(world, t) {
+    if (!world.escort) return null;
+    return { x: W / 2 + Math.sin(t * 0.0125) * 104 + Math.sin(t * 0.031 + 1) * 22, y: ESC_Y + Math.sin(t * 0.021) * 18 };
+  }
+
+  /* ---------- Rescue (v39, mission plan 5): escape pods drift down fixed, marked paths. Touch one to catch it (+150).
+     Above the safe line a pod is shielded. Below it, a rock that reaches an uncaught pod bumps it away (lost, never hurt),
+     and a pod that falls off the bottom drifts off too. Own rng, so the course is unchanged. Ticks only, so replays stay exact. ---------- */
+  const POD_R = 12, POD_VY = 1.6, POD_SAFE_Y = 170, POD_PTS = 150;
+  function setRescue(world, starts) {
+    if (!starts || !starts.length) { world.rescue = null; return world; }
+    const rng = mulberry32(hashStr(world.seed + ":pod"));
+    world.rescue = { pods: starts.map((t, i) => ({ id: i, t, x: 70 + rng() * (W - 140), sway: 22 + rng() * 36, ph: rng() * 6.283, f: 0.012 + rng() * 0.01 })) };
+    return world;
+  }
+  function podAt(p, t) {
+    const k = t - p.t;
+    return { x: Math.max(POD_R + 4, Math.min(W - POD_R - 4, p.x + Math.sin(k * p.f + p.ph) * p.sway)), y: -POD_R + POD_VY * k };
+  }
+
+  /* ---------- Blackout (v40, mission plan 5): the Silence kills the lights from tick `from` to `until`. Only a lamp around
+     your ship stays lit. Every star caught in the dark feeds the lamp one step (up to LAMP_MAX), so it shines farther.
+     Hits never dim it. The course itself is unchanged. Ticks only, so replays stay exact. ---------- */
+  const LAMP_R0 = 120, LAMP_STEP = 10, LAMP_MAX = 5, DARK_RAMP = 40;
+  function setBlackout(world, spec) { world.blackout = spec ? { from: spec.from || 0, until: spec.until || MAX_T } : null; return world; }
+  /** How dark the sky is at tick t: 0 (lights on) to 1 (full blackout). */
+  function blackoutAt(world, t) {
+    const b = world.blackout; if (!b || t < b.from || t >= b.until) return 0;
+    return Math.max(0, Math.min(1, (t - b.from) / DARK_RAMP, (b.until - t) / DARK_RAMP));
+  }
+
+  /* ---------- Heist (v42, mission plan 5): the Silence's searchlight sweeps the lower sky on a fixed path. Core fragments
+     drift down marked paths; touch one to steal it (+100). Fly into the red light once it's lit and you're spotted: it costs
+     one shield, never the last one, so being seen never ends the run. Own rng, so the course is unchanged. Ticks only. ---------- */
+  const HEIST_R = 56, LIGHT_WARM = 60, FRAG_R = 11, FRAG_VY = 1.7, FRAG_PTS = 100;
+  function setHeist(world, spec) {
+    if (!spec) { world.heist = null; return world; }
+    const rng = mulberry32(hashStr(world.seed + ":heist"));
+    const ph = [rng() * 6.283, rng() * 6.283, rng() * 6.283];
+    world.heist = { from: spec.from || 0, until: spec.until || MAX_T, ph,
+      frags: (spec.frags || []).map((t, i) => ({ id: i, t, x: 60 + rng() * (W - 120), sway: 18 + rng() * 30, ph: rng() * 6.283, f: 0.014 + rng() * 0.01 })) };
+    return world;
+  }
+  /** The searchlight at tick t: centre, radius, and how lit it is (on: 0..1; it only spots you at 1). null when off. */
+  function lightAt(world, t) {
+    const h = world.heist; if (!h || t < h.from || t >= h.until) return null;
+    const k = t - h.from;
+    return { x: W / 2 + Math.sin(k * 0.011 + h.ph[0]) * 118 + Math.sin(k * 0.029 + h.ph[1]) * 22, y: 395 + Math.sin(k * 0.0085 + h.ph[2]) * 125, r: HEIST_R, on: Math.min(1, k / LIGHT_WARM) };
+  }
+  function fragAt(f, t) {
+    const k = t - f.t;
+    return { x: Math.max(FRAG_R + 4, Math.min(W - FRAG_R - 4, f.x + Math.sin(k * f.f + f.ph) * f.sway)), y: -FRAG_R + FRAG_VY * k };
+  }
+
+  /* v43: one star catch (a course star or a beacon light mote). Combo, Fever, lamp and Siphon all work the same for both. */
+  function catchStar(world, r, ev, x, y, gold, mote) {
+    r.stars++; r.combo++;
+    r.mult = Math.min(5, 1 + Math.floor(r.combo / 3)); r.maxMult = Math.max(r.maxMult, r.mult);
+    if (r.mult >= 5 && r.feverArmed && r.fever === 0) {
+      r.feverArmed = false; r.fevers++; r.feverPts = 0; r.fever = r.feverMax = eventAt(world, r.t) ? FEVER_EVENT_T : FEVER_T;
+      ev.push({ type: "fever", dur: r.fever });
+    }
+    const base = Math.round((gold ? 150 : 25) * r.mult * r.cfg.starMul), pts = r.fever > 0 ? base * 2 : base;
+    if (r.fever > 0) r.feverPts += pts - base;
+    r.bonus += pts; if (gold) r.golds++;
+    ev.push({ type: "star", x, y, pts, mult: r.mult, gold, mote: !!mote });
+    if (world.blackout && r.lamp < LAMP_MAX && blackoutAt(world, r.t) > 0.5) { r.lamp++; ev.push({ type: "lamp", n: r.lamp, x, y }); }
+    if (r.cfg.ability === "siphon" && r.stars % SIPHON_EVERY === 0) {
+      const cap = Math.max(MAX_LIVES, r.cfg.lives + 1);
+      if (r.lives < cap) { r.lives++; r.siphons++; ev.push({ type: "siphon", x: r.x, y: r.y }); }
+    }
+    if (world.beacon && r.beaconLit == null && r.stars >= world.beacon.goal) {
+      r.beaconLit = r.t; r.bonus += BEACON_PTS; ev.push({ type: "beaconLit", x: r.x, y: r.y, pts: BEACON_PTS });
+    }
+  }
+
+  /* ---------- Light the Beacon (v43, mission plan 5): golden light streams snake down the sky. Every mote you touch counts
+     as a star (combo, Fever and all). Catch `goal` stars in one run and the beacon lights (+300). Own rng, so the course is
+     unchanged. Ticks only, so replays stay exact. ---------- */
+  const MOTE_R = 8, MOTE_VY = 2.6, MOTE_GAP = 12, MOTE_N = 5, BEACON_PTS = 300;
+  function setBeacon(world, spec) {
+    if (!spec) { world.beacon = null; return world; }
+    const rng = mulberry32(hashStr(world.seed + ":beacon")), motes = [];
+    for (let t0 = spec.from || 0; t0 < (spec.until || MAX_T); t0 += spec.every || 120) {
+      const sway = 34 + rng() * 40, x = 30 + sway + rng() * (W - 60 - 2 * sway), ph = rng() * 6.283, f = 0.018 + rng() * 0.012;
+      for (let i = 0; i < MOTE_N; i++) motes.push({ id: motes.length, s: motes.length / MOTE_N | 0, t: t0 + i * MOTE_GAP, x, sway, ph, f });
+    }
+    world.beacon = { goal: spec.goal || 50, motes };
+    return world;
+  }
+  function moteAt(m, t) {
+    const k = t - m.t;
+    return { x: m.x + Math.sin(k * m.f + m.ph) * m.sway, y: -MOTE_R + MOTE_VY * k };
+  }
 
   /* One fixed step for a ship heading to targetX. Returns events for the screen to show. */
   const MIN_Y = H * 0.3, MAX_Y = H - SHIP_R - 18;
@@ -654,6 +792,7 @@ button.lk { cursor: pointer; }
     r.t++;
     if (r.inv > 0) r.inv--;
     if (r.magnet > 0) r.magnet--;
+    if (r.fever > 0 && --r.fever === 0) ev.push({ type: "feverEnd", hit: false, pts: r.feverPts });
     const well = wellAt(world, r.t), wst = well && wellState(well, r.t);
     if (wst) {
       const wx = wst.x - r.x, wy = wst.y - r.y, wd = Math.hypot(wx, wy) || 1, f = WELL_PULL * wst.s * Math.max(0, 1 - wd / WELL_RANGE) ** 2;
@@ -661,21 +800,16 @@ button.lk { cursor: pointer; }
       r.y = Math.max(MIN_Y, Math.min(MAX_Y, r.y + wy / wd * f));
     }
     const list = active(world, r.t);
+    let esc = null;
+    if (world.escort && r.t <= world.escort.until) {
+      if (r.escHp == null) r.escHp = world.escort.hp;
+      esc = escortAt(world, r.t); esc.link = Math.hypot(r.x - esc.x, r.y - esc.y) < ESC_LINK;
+    }
     for (const a of list) {
       const it = a.it, d = Math.hypot(a.x - r.x, a.y - r.y);
       if (it.kind === "star") {
         const reach = r.magnet > 0 ? 95 : it.r + r.cfg.hit + 4;
-        if (d < reach && !r.got.has(it.id)) {
-          r.got.add(it.id); r.stars++; r.combo++;
-          r.mult = Math.min(5, 1 + Math.floor(r.combo / 3)); r.maxMult = Math.max(r.maxMult, r.mult);
-          const pts = Math.round((it.gold ? 150 : 25) * r.mult * r.cfg.starMul);
-          r.bonus += pts; if (it.gold) r.golds++;
-          ev.push({ type: "star", x: a.x, y: a.y, pts, mult: r.mult, gold: it.gold });
-          if (r.cfg.ability === "siphon" && r.stars % SIPHON_EVERY === 0) {
-            const cap = Math.max(MAX_LIVES, r.cfg.lives + 1);
-            if (r.lives < cap) { r.lives++; r.siphons++; ev.push({ type: "siphon", x: r.x, y: r.y }); }
-          }
-        }
+        if (d < reach && !r.got.has(it.id)) { r.got.add(it.id); catchStar(world, r, ev, a.x, a.y, it.gold); }
       } else if (it.kind === "power") {
         if (d < it.r + r.cfg.hit + 6 && !r.got.has(it.id)) {
           r.got.add(it.id); r.powers++;
@@ -693,13 +827,21 @@ button.lk { cursor: pointer; }
         }
       } else if (!r.smashed.has(it.id)) {
         const hitR = it.r * 0.82 + r.cfg.hit;
+        if (esc) {
+          if (d < hitR && esc.link) { r.smashed.add(it.id); r.blocks++; const bp = 20 * r.mult; r.bonus += bp; ev.push({ type: "block", x: a.x, y: a.y, pts: bp }); continue; }
+          if (Math.hypot(a.x - esc.x, a.y - esc.y) < it.r * 0.82 + ESC_R) {
+            r.smashed.add(it.id); r.escHp--; ev.push({ type: "escHit", x: a.x, y: a.y, hp: r.escHp });
+            if (r.escHp <= 0) { r.escLost = true; r.alive = false; ev.push({ type: "escLost", x: esc.x, y: esc.y }); break; }
+            continue;
+          }
+        }
         if (it.gate >= 0 && d < hitR) r.gateHit.add(it.gate);
         if (it.gate >= 0 && !r.gateDone.has(it.gate) && !r.gateHit.has(it.gate) && a.y - it.r > r.y + SHIP_R) {
           r.gateDone.add(it.gate); r.gates++; r.bonus += 50 * r.mult;
           ev.push({ type: "gate", x: r.x, y: r.y - 34, pts: 50 * r.mult });
         }
         if (d < hitR && r.inv === 0) {
-          r.hitIds.add(it.id); r.lives--; r.inv = invFor(r);
+          r.hitIds.add(it.id); r.lives--; r.inv = invFor(r); endFever(r, ev);
           if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
           ev.push({ type: "hit", x: a.x, y: a.y });
           if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); break; }
@@ -711,6 +853,49 @@ button.lk { cursor: pointer; }
           r.nearDone.add(it.id); r.near++; r.bonus += np;
           ev.push({ type: "near", x: r.x, y: r.y - 30, pts: np });
         }
+      }
+    }
+    if (r.alive && world.rescue) for (const p of world.rescue.pods) {
+      if (r.t < p.t || r.podDone.has(p.id)) continue;
+      const pp = podAt(p, r.t);
+      if (Math.hypot(pp.x - r.x, pp.y - r.y) < POD_R + r.cfg.hit + 6) {
+        r.podDone.add(p.id); r.pods++; r.bonus += POD_PTS;
+        ev.push({ type: "pod", x: pp.x, y: pp.y, pts: POD_PTS, n: r.pods, id: p.id });
+        continue;
+      }
+      if (pp.y - POD_R > H) { r.podDone.add(p.id); r.podLost++; ev.push({ type: "podLost", x: pp.x, y: H - 30, id: p.id, why: "fell" }); continue; }
+      if (pp.y < POD_SAFE_Y) continue;
+      for (const a of list) {
+        if (a.it.kind !== "rock" || r.smashed.has(a.it.id)) continue;
+        if (Math.hypot(a.x - pp.x, a.y - pp.y) < a.it.r * 0.82 + POD_R) {
+          r.smashed.add(a.it.id); r.podDone.add(p.id); r.podLost++;
+          ev.push({ type: "podLost", x: pp.x, y: pp.y, id: p.id, why: "rock", rx: a.x, ry: a.y });
+          break;
+        }
+      }
+    }
+    if (r.alive && world.beacon) for (const m of world.beacon.motes) {
+      if (m.t > r.t) break;
+      if (r.moteDone.has(m.id)) continue;
+      const mp = moteAt(m, r.t);
+      if (mp.y - MOTE_R > H) { r.moteDone.add(m.id); continue; }
+      if (Math.hypot(mp.x - r.x, mp.y - r.y) < (r.magnet > 0 ? 95 : MOTE_R + r.cfg.hit + 4)) { r.moteDone.add(m.id); r.motes++; catchStar(world, r, ev, mp.x, mp.y, false, true); }
+    }
+    if (r.alive && world.heist) {
+      for (const f of world.heist.frags) {
+        if (r.t < f.t || r.fragDone.has(f.id)) continue;
+        const fp = fragAt(f, r.t);
+        if (Math.hypot(fp.x - r.x, fp.y - r.y) < FRAG_R + r.cfg.hit + 6) {
+          r.fragDone.add(f.id); r.frags++; r.bonus += FRAG_PTS;
+          ev.push({ type: "frag", x: fp.x, y: fp.y, pts: FRAG_PTS, n: r.frags, id: f.id });
+        } else if (fp.y - FRAG_R > H) { r.fragDone.add(f.id); ev.push({ type: "fragLost", id: f.id }); }
+      }
+      const lt = lightAt(world, r.t);
+      if (lt && lt.on >= 1 && r.inv === 0 && Math.hypot(lt.x - r.x, lt.y - r.y) < lt.r - r.cfg.hit * 0.3) {
+        r.spotted++; r.inv = invFor(r); endFever(r, ev);
+        const lost = r.lives > 1; if (lost) r.lives--;
+        if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
+        ev.push({ type: "spotted", x: r.x, y: r.y, lost, n: r.spotted });
       }
     }
     if (r.alive && world.bosses && world.bosses.length) {
@@ -735,7 +920,7 @@ button.lk { cursor: pointer; }
       if (r.inv === 0) for (const a of ba.shots) {
         if (r.bossKill[a.i] != null) continue;
         if (Math.hypot(a.x - r.x, a.y - r.y) >= a.r + r.cfg.hit * 0.5) continue;
-        r.bossHurt[a.i] = true; r.hitIds.add("boss" + r.t); r.lives--; r.inv = invFor(r);
+        r.bossHurt[a.i] = true; r.hitIds.add("boss" + r.t); r.lives--; r.inv = invFor(r); endFever(r, ev);
         if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
         ev.push({ type: "hit", x: a.x, y: a.y });
         if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); }
@@ -746,14 +931,14 @@ button.lk { cursor: pointer; }
       });
     }
     if (r.alive && wst && wst.s > 0.25 && r.inv === 0 && Math.hypot(wst.x - r.x, wst.y - r.y) < WELL_CORE + r.cfg.hit * 0.5) {
-      r.hitIds.add("well" + r.t); r.lives--; r.inv = invFor(r);
+      r.hitIds.add("well" + r.t); r.lives--; r.inv = invFor(r); endFever(r, ev);
       if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
       ev.push({ type: "hit", x: wst.x, y: wst.y, well: true });
       if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); }
     }
     if (r.alive && r.inv === 0 && world.flaresLive && world.flaresLive.length) for (const a of beamsAt(world, r.t)) {
       if (!a.live || Math.abs(r.x - a.x) >= a.hw + r.cfg.hit * 0.5) continue;
-      r.hitIds.add("flare" + r.t); r.lives--; r.inv = invFor(r);
+      r.hitIds.add("flare" + r.t); r.lives--; r.inv = invFor(r); endFever(r, ev);
       if (r.keep > 0) { r.keep--; ev.push({ type: "guard" }); } else { r.combo = 0; r.mult = 1; }
       ev.push({ type: "hit", x: a.x, y: r.y, flare: true });
       if (r.lives <= 0) { r.alive = false; ev.push({ type: "dead" }); }
@@ -768,6 +953,7 @@ button.lk { cursor: pointer; }
     if (world.events) for (const e of world.events) {
       if (r.t === e.t + e.dur && !eventHidden(world, e)) { r.bonus += 100; ev.push({ type: "survived", event: e.type }); }
     }
+    if (r.mult < 5) r.feverArmed = true;
     r.score = Math.floor(r.t / 6) + r.bonus;
     if (r.t >= MAX_T - 1) r.alive = false;
     return ev;
@@ -803,26 +989,62 @@ button.lk { cursor: pointer; }
         }
       }
       if (bm) for (const a of bm) if (a.k > BEAM_WARN - 50 && Math.abs(cx - a.x) < a.hw + SHIP_R + 8) cost += 30;
+      if (world.rescue) {
+        const reach = Math.abs(cx - g.x) / 3.0;
+        for (const p of world.rescue.pods) {
+          if (g.t < p.t - 30 || g.podDone.has(p.id)) continue;
+          const t0 = Math.max(g.t, p.t), dt = (SHIP_Y - podAt(p, t0).y) / POD_VY;
+          if (dt < -4 || dt > 120) continue;
+          if (Math.abs(podAt(p, t0 + Math.max(0, dt)).x - cx) < 20 && reach <= dt + 2) cost -= 14;
+        }
+      }
+      if (world.beacon) {
+        const reach = Math.abs(cx - g.x) / 3.0;
+        for (const m of world.beacon.motes) {
+          if (m.t > g.t + 10) break;
+          if (g.moteDone.has(m.id)) continue;
+          const dt = (SHIP_Y - moteAt(m, g.t).y) / MOTE_VY;
+          if (dt < -2 || dt > 70) continue;
+          if (Math.abs(moteAt(m, g.t + Math.max(0, dt)).x - cx) < 18 && reach <= dt + 2) cost -= 1.5;
+        }
+      }
+      if (world.heist) {
+        const reach = Math.abs(cx - g.x) / 3.0;
+        for (const f of world.heist.frags) {
+          if (g.t < f.t - 30 || g.fragDone.has(f.id)) continue;
+          const t0 = Math.max(g.t, f.t), dt = (SHIP_Y - fragAt(f, t0).y) / FRAG_VY;
+          if (dt < -4 || dt > 120) continue;
+          if (Math.abs(fragAt(f, t0 + Math.max(0, dt)).x - cx) < 20 && reach <= dt + 2) cost -= 12;
+        }
+        for (let dt = 0; dt <= 30; dt += 10) { const lt = lightAt(world, g.t + dt); if (lt && lt.on >= 0.6 && Math.abs(cx - lt.x) < lt.r + 16 && Math.abs(SHIP_Y - lt.y) < lt.r + 8) cost += 25; }
+      }
       cost += rng() * 3.2;
       if (cost < bestCost) { bestCost = cost; best = cx; }
     }
     return best;
   }
-  function recordGhost(world) {
-    const rng = mulberry32(hashStr(world.seed + ":ghost"));
+  /* v41 (mission plan 5): Race the Rival. Kestrel flies the same bot with her own seed and a few more lapses in focus,
+     so a good run beats her. Defaults keep the daily ghost exactly as before. */
+  function recordGhost(world, opt) {
+    const tag = opt && opt.tag || ":ghost", slip = opt && opt.slip != null ? opt.slip : 0.02;
+    const rng = mulberry32(hashStr(world.seed + tag));
     const g = newRunner(), path = [g.x], scores = [0];
     let aim = g.x, lapse = 0;
     while (g.alive) {
       if (lapse > 0) lapse--;
       else if (g.t % 6 === 0) {
         aim = ghostAim(world, g, rng);
-        if (rng() < 0.02 + g.t / TPS * 0.0004) lapse = 22 + Math.floor(rng() * 20);
+        if (rng() < slip + g.t / TPS * 0.0004) lapse = 22 + Math.floor(rng() * 20);
       }
       step(world, g, aim, 3.0, SHIP_Y);
       path.push(g.x); scores.push(g.score);
     }
-    return { path, scores, score: g.score, t: g.t, stars: g.stars };
+    return { path, scores, score: g.score, t: g.t, stars: g.stars, pods: g.pods, frags: g.frags, spotted: g.spotted, beaconLit: g.beaconLit };
   }
+  const RIVAL_SLIP = 0.045;
+  function recordRival(world) { return recordGhost(world, { tag: ":kestrel", slip: RIVAL_SLIP }); }
+  /** A rival's score at tick t (her last score if she went down earlier). */
+  function rivalScore(g, t) { return g.scores[Math.max(0, Math.min(t, g.scores.length - 1))]; }
 
   /* Three daily missions, the same for everyone that day.
      v28 (audit #2): sizes tuned to where players actually get to (survival, score and close calls came down). */
@@ -896,9 +1118,11 @@ button.lk { cursor: pointer; }
     recordGhost, missions, SKINS, fmtTime, loadoutCfg, replay, MAX_T,
     bossPos, bossActive, setBosses, hiddenAt, eventHidden, BOSS_WARN, BOSS_HP,
     setWells, wellAt, wellState, WELL_CORE, WELL_RANGE,
-    setFlares, beamsAt, BEAM_WARN, BEAM_FIRE, FLARE_LEN, SIPHON_EVERY, firstGatesAt };
+    setFlares, beamsAt, BEAM_WARN, BEAM_FIRE, FLARE_LEN, SIPHON_EVERY, firstGatesAt, FEVER_T, FEVER_EVENT_T,
+    setEscort, escortAt, ESC_R, ESC_LINK, setRescue, podAt, POD_R, POD_SAFE_Y, POD_PTS, POD_VY,
+    setBlackout, blackoutAt, LAMP_R0, LAMP_STEP, LAMP_MAX, recordRival, rivalScore,
+    setHeist, lightAt, fragAt, HEIST_R, FRAG_R, FRAG_PTS, FRAG_VY, setBeacon, moteAt, MOTE_R, BEACON_PTS };
 })(typeof module !== "undefined" ? module.exports : window);
-
 </script>
 <script>
 (function () {
@@ -908,6 +1132,15 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 44, date: "2026-11-12", notes: ["Chapter 2, \"The Dark Belt\": levels 11 to 20 are now story missions with their own names, crew briefings and win scenes", "A faint signal is coming from inside the Silence. Follow it all the way to Mission 20", "Break Husk II and meet Nova, a lost pilot with her own radio portrait", "Three new crew stories can turn up after a missed goal, kind as always"] },
+    { v: 43, date: "2026-11-12", notes: ["New mission type: Light the Beacon! Golden light streams snake down the sky", "Every light mote counts as a star, so ride a stream to build your combo and Fever", "Catch 50 stars in one run and the beacon blazes up from your ship, +300", "Try it in Level 27, \"Beacon Fire\", and earn the new Lighthouse trophy"] },
+    { v: 42, date: "2026-11-12", notes: ["New mission type: Heist! Steal glowing core fragments right out from under the Silence", "Its red searchlight sweeps the sky. Get spotted and it costs a shield, but never your run", "Fragments drift down marked paths, +100 each. Grab 4 of the 6", "Try it in Level 23, \"Core Heist\", and earn the new Shadow Runner trophy"] },
+    { v: 41, date: "2026-11-12", notes: ["New mission type: Race the Rival! Kestrel's pink ghost flies the same course as you", "Beat her score by the finish line. The top bar shows live who's ahead", "Kestrel calls it out over the radio every time the lead changes hands", "Try it in Level 14, \"Redline Duel\", and earn the new Outpaced trophy"] },
+    { v: 40, date: "2026-11-12", notes: ["New mission type: Blackout Run! The Silence kills the lights, and only the lamp around your ship stays lit", "Every star you catch in the dark feeds your lamp, so you see farther. Hits never dim it", "Rocks glow at the edges of the dark, and comet warnings always shine through", "Try it in Level 18, \"Lights Out\", and earn the new Night Flyer trophy"] },
+    { v: 39, date: "2026-11-11", notes: ["New mission type: Rescue! Escape pods drift down through the meteors on dotted paths", "Touch a pod to catch it and bring its pilot aboard, +150 each", "Pods are shielded up high. Lower down, a rock can bump one away. It drifts off safe, and a tug fetches it", "Try it in Level 13, \"Lifeboats\": catch 3 of the 4 pods, or all 4 for the third star"] },
+    { v: 38, date: "2026-11-11", notes: ["New mission type: Escort! Guide a glowing Light Ship safely to the finish", "Fly inside its teal ring and your shields join: any rock you touch is blocked for points", "Rocks that reach the Light Ship cost it a light. Lose all 3 and it turns back home, safe", "Try it in Level 16, \"Lantern Run\", and earn the new Light Keeper trophy"] },
+    { v: 37, date: "2026-11-11", notes: ["Challenge a friend! After a daily run, send a link that holds your whole run", "Your friend races your exact ghost on the same course, even on another day", "See who won by how much, then hit Rematch or send your own run back", "New trophy: Rival Racer, for beating 3 friends' challenges"] },
+    { v: 36, date: "2026-11-11", notes: ["FEVER! Reach a ×5 combo and every star pays double for 6 seconds, or 8 if it starts during an event", "The sky warms up, the music speeds up, and a FEVER bar drains next to your combo. A hit cools it down", "Retry is instant now, and the music keeps playing between runs", "Close to your best? The results screen shows how close. Beat it for a gold NEW BEST stamp, and see your next goal"] },
     { v: 35, date: "2026-11-11", notes: ["New beacon map! Levels are now a glowing path of beacons through each sector, mission 1 at the bottom and the boss at the top", "Finished missions glow gold, your next one pulses, and your stars show under every beacon", "The path lights up as you fly, and the sector's colors come back with every beacon you light", "Light all 10 beacons in a sector and they flare up together, with a word from Commander Vega"] },
     { v: 34, date: "2026-11-11", notes: ["Boss entrances! Before every Mothership the screen dims, red alarms pulse and the Silence speaks", "Each husk slides in with its name plate, then BREAK THE CORE and the fight is on", "Break the core and light floods back into the sector. The sky stays brighter for the rest of the run", "You see the full entrance once per husk; after that it's a quick version"] },
     { v: 33, date: "2026-11-11", notes: ["Chapter 1, \"First Light\": levels 1 to 10 are now story missions with names, crew briefings and a win scene for each", "Meet Kestrel properly in Mission 4, and face the first Silence husk in Mission 10", "After every run your crew gives a short debrief. Missing a goal is always met kindly, and sometimes Vega or Bolt tells you a secret about the galaxy", "Miss a level goal 10 times and Bolt gives you a free tune-up: one extra shield for a level run"] },
@@ -963,13 +1196,62 @@ button.lk { cursor: pointer; }
       score: { text: L => `Score ${L.goal.toLocaleString()} points`, of: r => r.score },
       close: { text: L => `Pull off ${L.goal} close calls`, of: r => r.near },
       gates: { text: L => `Fly through ${L.goal} gates`, of: r => r.gates },
-      golden: { text: L => `Catch a golden star`, of: r => r.golds }
+      golden: { text: L => `Catch a golden star`, of: r => r.golds },
+      escort: { text: L => `Escort the Light Ship to the finish`, of: () => 0 },
+      rescue: { text: L => `Rescue ${L.goal} of ${L.podN} escape pods`, of: r => r.pods },
+      blackout: { text: L => `Fly through the blackout to the finish`, of: () => 0 },
+      race: { text: L => `Beat Kestrel: score ${L.goal.toLocaleString()}+`, of: r => r.score },
+      heist: { text: L => `Steal ${L.goal} of ${L.fragN} core fragments`, of: r => r.frags },
+      beacon: { text: L => `Light the beacon: catch ${L.goal} stars`, of: r => r.stars }
     };
+    /* v38 (mission plan 5): escort missions. Level 16 is the first; more mission types join the cycle as they arrive */
+    const SPECIAL = { 13: "rescue", 14: "race", 16: "escort", 18: "blackout", 23: "heist", 27: "beacon" };
+    /* v40 blackout: the lights go out 3 s in and stay out until the finish */
+    const DARK_FROM = 3;
+    /* v39 rescue: 4 escape pods, spread so the last one reaches you before the finish */
+    const POD_N = 4, RESCUE_GOAL = 3;
+    const podStarts = dur => Array.from({ length: POD_N }, (_, k) => Math.round((3 + k * (dur - 11) / (POD_N - 1)) * TPS));
+    /* v42 heist: 6 core fragments, steal 4. The searchlight switches on 2 s in (it can spot you from 3 s) */
+    const FRAG_N = 6, HEIST_GOAL = 4, LIGHT_FROM = 2;
+    const fragStarts = dur => Array.from({ length: FRAG_N }, (_, k) => Math.round((3 + k * (dur - 10) / (FRAG_N - 1)) * TPS));
+    const heistSpec = durT => ({ from: LIGHT_FROM * TPS, until: durT, frags: fragStarts(durT / TPS) });
+    /* v43 beacon: a light stream every 1.75 s from 2 s until 5 s before the finish; 50 stars lights it. 3rd star: lit with 10 s to spare */
+    const BEACON_GOAL = 50, BEACON_SPARE = 10;
+    const beaconSpec = durT => ({ goal: BEACON_GOAL, from: 2 * TPS, until: durT - 5 * TPS, every: 105 });
 
     function pickSeed(n, type, durT) {
       for (let k = 0; k < 200; k++) {
         const seed = `lvl-${n}-${k}`, world = CR.makeWorld(seed);
         if (n <= 10) CR.setWells(world, []);
+        /* v39 rescue: only a course where the ghost bot (who never leaves the bottom row) still saves enough pods and finishes */
+        if (type === "rescue") {
+          CR.setBosses(world, []); CR.setWells(world, []); CR.setFlares(world, []); CR.setRescue(world, podStarts(durT / TPS));
+          const g = CR.recordGhost(world);
+          if (k < 60 && (g.pods < RESCUE_GOAL || g.t < durT)) continue;
+        }
+        /* v40 blackout: only a course the ghost bot (who ignores the dark) flies all the way through */
+        if (type === "blackout" && k < 60) {
+          CR.setBosses(world, []); CR.setWells(world, []); CR.setFlares(world, []);
+          if (CR.recordGhost(world).t < durT) continue;
+        }
+        /* v41 race: a course where Kestrel flies to the finish and the ghost bot (a steady pilot) still beats her */
+        if (type === "race" && k < 60) {
+          CR.setBosses(world, []);
+          const kr = CR.recordRival(world), gb = CR.recordGhost(world);
+          if (kr.t < durT || gb.t < durT || CR.rivalScore(gb, durT) <= CR.rivalScore(kr, durT)) continue;
+        }
+        /* v42 heist: a course where the ghost bot (who keeps out of the light) steals enough fragments and finishes */
+        if (type === "heist" && k < 60) {
+          CR.setBosses(world, []); CR.setWells(world, []); CR.setFlares(world, []); CR.setHeist(world, heistSpec(durT));
+          const g = CR.recordGhost(world);
+          if (g.frags < HEIST_GOAL || g.t < durT) continue;
+        }
+        /* v43 beacon: a course where the ghost bot (who only drifts toward the streams) lights the beacon and finishes */
+        if (type === "beacon" && k < 60) {
+          CR.setBosses(world, []); CR.setWells(world, []); CR.setFlares(world, [14 * TPS]); CR.setBeacon(world, beaconSpec(durT));
+          const g = CR.recordGhost(world);
+          if (g.beaconLit == null || g.t < durT) continue;
+        }
         if (type === "gates" && !(world.events[0].type === "gates")) continue;
         if (type === "golden" && !world.items.some(it => it.gold && it.t + 200 < durT && !world.swallow.has(it.id))) continue;
         if (type === "stars") {
@@ -984,7 +1266,7 @@ button.lk { cursor: pointer; }
     /** Full definition of level n (1-based). Deterministic: same for every player. */
     function get(n) {
       if (cache.has(n)) return cache.get(n);
-      const w = Math.floor((n - 1) / 10), i = (n - 1) % 10, type = CYCLE[i];
+      const w = Math.floor((n - 1) / 10), i = (n - 1) % 10, type = SPECIAL[n] || CYCLE[i];
       let dur = Math.round(18 + w * 8 + i * 2);
       if (type === "gates") dur = Math.max(dur, 28);
       if (type === "finale") dur += 12;
@@ -997,7 +1279,21 @@ button.lk { cursor: pointer; }
       if (w === 0) CR.setWells(world, []);
       /* Solar flares start in the third world, early in the run, before the first black hole. */
       CR.setFlares(world, w >= 2 && type !== "finale" ? [14 * TPS] : []);
-      const ghost = CR.recordGhost(world);
+      /* escort runs keep the sky simple (no black hole tugging you out of the link ring) */
+      if (type === "escort") CR.setWells(world, []);
+      CR.setEscort(world, type === "escort" ? { hp: 3, until: durT } : null);
+      if (type === "rescue") CR.setWells(world, []);
+      CR.setRescue(world, type === "rescue" ? podStarts(dur) : null);
+      /* blackout runs keep the sky simple too: no black hole or solar flare hiding in the dark */
+      if (type === "blackout") { CR.setWells(world, []); CR.setFlares(world, []); }
+      CR.setBlackout(world, type === "blackout" ? { from: DARK_FROM * TPS, until: durT } : null);
+      /* heist runs keep the sky simple: the searchlight is the event */
+      if (type === "heist") { CR.setWells(world, []); CR.setFlares(world, []); }
+      CR.setHeist(world, type === "heist" ? heistSpec(durT) : null);
+      /* beacon runs keep the flare (the light streams dodge around it) but no black hole */
+      if (type === "beacon") CR.setWells(world, []);
+      CR.setBeacon(world, type === "beacon" ? beaconSpec(durT) : null);
+      const ghost = CR.recordGhost(world), rival = type === "race" ? CR.recordRival(world) : null;
       const starsAvail = world.items.filter(it => it.kind === "star" && it.t + 180 < durT && !CR.hiddenAt(world, it.t) && !world.swallow.has(it.id)).length;
       const baseScore = Math.floor(durT / 6) + Math.round(starsAvail * 25 * 0.55);
       let goal = 0;
@@ -1006,9 +1302,15 @@ button.lk { cursor: pointer; }
       if (type === "close") goal = 2 + w + Math.floor(i / 4);
       if (type === "gates") goal = 2 + (w >= 2 ? 1 : 0);
       if (type === "golden") goal = 1;
-      const par = round(type === "score" ? goal * 1.2 : baseScore * (0.85 + w * 0.05), 50);
+      if (type === "rescue") goal = RESCUE_GOAL;
+      if (type === "race") goal = CR.rivalScore(rival, durT) + 1;
+      if (type === "heist") goal = HEIST_GOAL;
+      if (type === "beacon") goal = BEACON_GOAL;
+      /* escort: blocked rocks pay points, so its par sits higher (tuned with a bot that just shadows the Light Ship) */
+      /* rescue: each saved pod pays 150, so its par counts the 3 pods the goal needs */
+      const par = type === "beacon" ? round(Math.max(baseScore, ghost.score * 0.6), 50) : round(type === "score" ? goal * 1.2 : type === "race" ? goal * 1.12 : type === "escort" ? baseScore * 2.4 : type === "rescue" ? baseScore * (0.85 + w * 0.05) + RESCUE_GOAL * CR.POD_PTS : type === "heist" ? baseScore * (0.85 + w * 0.05) + HEIST_GOAL * CR.FRAG_PTS : baseScore * (0.85 + w * 0.05), 50);
       const par3 = round(par * 1.3, 50);
-      const L = { n, w, i, type, dur, durT, seed, world, ghost, goal, par, par3, shieldCut: WORLDS[w].shieldCut, finale: type === "finale" };
+      const L = { n, w, i, type, dur, durT, seed, world, ghost, goal, par, par3, shieldCut: WORLDS[w].shieldCut, finale: type === "finale", podN: type === "rescue" ? POD_N : 0, fragN: type === "heist" ? FRAG_N : 0, rival };
       L.goalText = GOALS[type].text(L);
       cache.set(n, L);
       return L;
@@ -1016,8 +1318,10 @@ button.lk { cursor: pointer; }
 
     /** How far the runner is on the goal: { have, need, met } */
     function progress(L, r) {
-      if (L.type === "survive" || L.type === "finale") return { have: Math.min(r.t, L.durT), need: L.durT, met: r.t >= L.durT };
+      if (L.type === "survive" || L.type === "finale" || L.type === "escort" || L.type === "blackout") return { have: Math.min(r.t, L.durT), need: L.durT, met: r.t >= L.durT && !r.escLost };
       const have = GOALS[L.type].of(r);
+      /* v41 race: beat Kestrel's score, or reach the finish after she has gone down */
+      if (L.type === "race") return { have, need: L.goal, met: have >= L.goal || (L.rival.t < L.durT && r.t >= L.durT) };
       return { have, need: L.goal, met: have >= L.goal };
     }
 
@@ -1025,10 +1329,14 @@ button.lk { cursor: pointer; }
     function rate(L, r, finished) {
       const met = finished && progress(L, r).met;
       const checks = [
-        { text: L.type === "survive" || L.type === "finale" ? "Reach the finish" : L.goalText + " and finish", ok: met },
+        { text: L.type === "survive" || L.type === "finale" || L.type === "blackout" ? "Reach the finish" : L.type === "escort" ? "Bring the Light Ship to the finish" : L.type === "race" ? "Beat Kestrel to the finish" : L.goalText + " and finish", ok: met },
         { text: `Score ${L.par.toLocaleString()}+`, ok: met && r.score >= L.par },
         /* v28 (audit #3): a hit no longer costs the third star if you score well or win the shield back */
-        { text: `Full shields at the end, or score ${L.par3.toLocaleString()}+`, ok: met && (r.lives >= r.cfg.lives || r.score >= L.par3) }
+        L.type === "escort" ? { text: `Light Ship unharmed, or score ${L.par3.toLocaleString()}+`, ok: met && (r.escHp >= 3 || r.score >= L.par3) }
+          : L.type === "rescue" ? { text: `All ${L.podN} pods rescued, or score ${L.par3.toLocaleString()}+`, ok: met && (r.pods >= L.podN || r.score >= L.par3) }
+          : L.type === "heist" ? { text: `Never spotted, or score ${L.par3.toLocaleString()}+`, ok: met && (r.spotted === 0 || r.score >= L.par3) }
+          : L.type === "beacon" ? { text: `Lit with ${BEACON_SPARE}s to spare, or score ${L.par3.toLocaleString()}+`, ok: met && ((r.beaconLit != null && r.beaconLit <= L.durT - BEACON_SPARE * TPS) || r.score >= L.par3) }
+          : { text: `Full shields at the end, or score ${L.par3.toLocaleString()}+`, ok: met && (r.lives >= r.cfg.lives || r.score >= L.par3) }
       ];
       return { met, stars: met ? checks.filter(c => c.ok).length : 0, checks };
     }
@@ -1054,7 +1362,7 @@ button.lk { cursor: pointer; }
     const runXP = (r, newLevelStars) => Math.floor(r.score / 10) + newLevelStars * 25;
     const levelUpCoins = () => 40; /* v26: flat, so ship unlocks stretch across the first week or so */
 
-    return { WORLDS, COUNT, get, progress, rate, total, worldOpen, levelOpen, xpNeed, rankName, addXP, runXP, levelUpCoins };
+    return { WORLDS, COUNT, get, progress, rate, total, worldOpen, levelOpen, xpNeed, rankName, addXP, runXP, levelUpCoins, BEACON_SPARE };
   }
 
   const LV = makeLevels(CR);
@@ -1285,9 +1593,12 @@ button.lk { cursor: pointer; }
     };
 
     const skyCache = new Map();
-    function drawBackground(ctx, t, th, lite) {
-      let bg = skyCache.get(th.sky);
-      if (!bg) { bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, th.sky); bg.addColorStop(1, "#04050d"); skyCache.set(th.sky, bg); }
+    const mix = (c1, c2, k) => { const a = parseInt(c1.slice(1), 16), b = parseInt(c2.slice(1), 16), f = s => Math.round((a >> s & 255) * (1 - k) + (b >> s & 255) * k); return `rgb(${f(16)},${f(8)},${f(0)})`; };
+    /* warm: 0..1. v36 Fever warms the sky by swapping in a warmer cached sky gradient (4 steps), so it costs nothing extra per frame */
+    function drawBackground(ctx, t, th, lite, warm) {
+      const q = warm > 0 ? Math.ceil(Math.min(1, warm) * 4) / 4 : 0, key = th.sky + ":" + q;
+      let bg = skyCache.get(key);
+      if (!bg) { bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, q ? mix(th.sky, "#ff7a3d", .36 * q) : th.sky); if (q) bg.addColorStop(.6, mix("#04050d", "#ff5a6e", .1 * q)); bg.addColorStop(1, q ? mix("#04050d", "#3a0a1c", .8 * q) : "#04050d"); skyCache.set(key, bg); }
       ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
       SCENES[th.scene](ctx, t, th, 1);
       if (!lite) SCENES[th.over](ctx, t, th, 0.55);
@@ -1783,7 +2094,7 @@ button.lk { cursor: pointer; }
   function drawComboGlow(t) {
     if (comboGlow < 0.02) return;
     const pulse = calm() ? 1 : 0.8 + 0.2 * Math.sin(t * 0.18), k = comboGlow * pulse, wd = 10 + 22 * comboGlow;
-    const col = me.mult >= 5 && !calm() && Math.floor(t / 12) % 2 ? "255,150,70" : "255,204,77";
+    const col = me.fever > 0 && !calm() && theme ? rgbOf(theme.a) : me.mult >= 5 && !calm() && Math.floor(t / 12) % 2 ? "255,150,70" : "255,204,77"; /* v36: Fever glows in the world's own color */
     const edge = (x0, y0, x1, y1, rx, ry, rw, rh) => {
       const g = ctx.createLinearGradient(x0, y0, x1, y1);
       g.addColorStop(0, `rgba(${col},${.42 * k})`); g.addColorStop(1, `rgba(${col},0)`);
@@ -1866,7 +2177,7 @@ button.lk { cursor: pointer; }
         bass: "0..0..o.0..0..5.", bassT: "sawtooth", bassOct: 0, bassLen: 2, bassVol: .09, bassLp: 600, bassDet: 14,
         arp: "3...1..2....0...", arpT: "square", arpOct: 24, arpVol: .03, arpLen: 1, arpLp: 2200, pad: "sawtooth", padVol: .02, padLp: 800 }
     };
-    const want = { on: false, style: "menu", boost: 0, boss: false, dim: false, paused: false };
+    const want = { on: false, style: "menu", boost: 0, boss: false, dim: false, paused: false, fever: false };
     let bus = null, filt = null, noise = null, cur = "menu", step = 0, bar = 0, nextTime = 0;
     const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
     const note = (S, d) => S.root + S.scale[((d % 7) + 7) % 7] + 12 * Math.floor(d / 7);
@@ -1911,7 +2222,7 @@ button.lk { cursor: pointer; }
     function playStep(S, s, t, sd) {
       const deg = S.prog[bar % S.prog.length], root = note(S, deg);
       const chord = [note(S, deg), note(S, deg + 2), note(S, deg + 4), note(S, deg) + 12];
-      const intro = cur !== "menu" && bar < 1, hot = want.boost >= 2 || want.boss;
+      const intro = cur !== "menu" && bar < 1, hot = want.boost >= 2 || want.boss || want.fever;
       const g = S.glitch && Math.random() < 0.25;
       if (S.kick[s] === "x" && !intro) kick(t, .55);
       if (want.boss && s % 4 === 2) kick(t, .3);
@@ -1936,7 +2247,7 @@ button.lk { cursor: pointer; }
       if (nextTime < now) nextTime = now + 0.05;
       while (nextTime < now + 0.16) {
         if (step % 4 === 0 && cur !== want.style) { cur = want.style; step = 0; bar = 0; }
-        const S = STY[cur], bpm = S.bpm + (cur === "menu" ? 0 : want.boost * 6 + (want.boss ? 8 : 0)), sd = 60 / bpm / 4;
+        const S = STY[cur], bpm = (S.bpm + (cur === "menu" ? 0 : want.boost * 6 + (want.boss ? 8 : 0))) * (want.fever && cur !== "menu" ? 1.08 : 1), sd = 60 / bpm / 4; /* v36: Fever runs the beat about 8% faster */
         playStep(S, step % 16, nextTime, sd);
         nextTime += sd; step++; if (step % 16 === 0) bar++;
       }
@@ -1956,6 +2267,7 @@ button.lk { cursor: pointer; }
     vega: { name: "Vega", role: "Commander", color: "#4fe0cf", blip: 880, skin: "#b07a57", skinD: "#8e5c40", hair: "#241a2e", suit: "#173740" },
     bolt: { name: "Bolt", role: "Mechanic", color: "#ff7a3d", blip: 620, skin: "#f0c8a4", skinD: "#cf9f7c", hair: "#3b2a20", suit: "#4a2a18" },
     kestrel: { name: "Kestrel", role: "Rival pilot", color: "#f06ad0", blip: 1040, skin: "#7a4a30", skinD: "#5c3522", hair: "#140c10", suit: "#3a1636" },
+    nova: { name: "Nova", role: "Lost pilot", color: "#dfe4ff", blip: 990, skin: "#e0b08c", skinD: "#bf8c68", hair: "#c9cff0", suit: "#2b2f55" },
     silence: { name: "The Silence", role: "Unknown signal", color: "#ff4f62", blip: 160 }
   };
   const LINES = {
@@ -1983,6 +2295,48 @@ button.lk { cursor: pointer; }
     "lv.gates": { who: "bolt", mood: "happy", text: "Gates are gaps in the rock walls. Thread them." },
     "lv.golden": { who: "bolt", mood: "happy", text: "Golden stars are rare. Big shine, big points." },
     "lv.rival": { who: "kestrel", mood: "smirk", text: "Kestrel here. Bet you can't beat my time." },
+    /* v38 escort missions */
+    "lv.escort": { who: "bolt", mood: "happy", text: "Fly inside its ring. Your shields protect it too." },
+    "esc.b1": { who: "vega", mood: "neutral", text: "The Light Ship carries lamps to a dark moon." },
+    "run.escHit": { who: "bolt", mood: "worried", text: "She's hit! Stay close and block those rocks!" },
+    "run.escHalf": { who: "vega", mood: "happy", text: "Halfway there. The Light Ship is counting on you." },
+    "esc.home": { who: "vega", mood: "happy", text: "The Light Ship made it! A whole moon lights up." },
+    "esc.lost": { who: "vega", mood: "happy", text: "The Light Ship turned back, safe. We'll try again." },
+    /* v39 rescue missions */
+    "res.b1": { who: "vega", mood: "worried", text: "Escape pods are falling through the Belt. Bring them home." },
+    "lv.rescue": { who: "bolt", mood: "happy", text: "Touch a pod to catch it. Keep rocks off it!" },
+    "run.podGot": { who: "vega", mood: "happy", text: "Got one! Welcome aboard, little pod." },
+    "run.podLost": { who: "bolt", mood: "neutral", text: "That pod bounced off. A tug will fetch it." },
+    "res.home": { who: "vega", mood: "happy", text: "Every pod pilot is safe and warm. Wonderful flying!" },
+    "res.short": { who: "vega", mood: "happy", text: "Some pods drifted off. Tugs are bringing them home." },
+    /* v40 blackout runs */
+    "blk.b1": { who: "vega", mood: "worried", text: "The Silence cut the lights out here. Trust your lamp." },
+    "lv.blackout": { who: "bolt", mood: "happy", text: "Stars feed your lamp. Grab them to see farther." },
+    "run.dark": { who: "silence", mood: "neutral", text: "Now let's see you fly in the dark." },
+    "run.lampFull": { who: "bolt", mood: "shout", text: "Lamp at full glow! Look at her shine!" },
+    "blk.home": { who: "vega", mood: "happy", text: "You flew through the dark and brought the light!" },
+    /* v41 race the rival */
+    "rac.b1": { who: "kestrel", mood: "smirk", text: "Race me, rookie. Same course, best score wins." },
+    "lv.race": { who: "vega", mood: "happy", text: "Her ghost flies in pink. Fly your own line." },
+    "run.passK": { who: "kestrel", mood: "shout", text: "Hey! Where did you come from?" },
+    "run.kPass": { who: "kestrel", mood: "smirk", text: "See you at the finish, rookie!" },
+    "rac.win": { who: "kestrel", mood: "smirk", text: "Okay, okay. You're fast. Rematch soon?" },
+    "rac.lose": { who: "vega", mood: "happy", text: "So close! She's quick, and you're getting quicker." },
+    /* v42 heist */
+    "hst.b1": { who: "bolt", mood: "smirk", text: "The Silence dropped core fragments. Let's borrow them. Forever." },
+    "lv.heist": { who: "vega", mood: "neutral", text: "Stay out of its red searchlight. It costs a shield." },
+    "run.lightOn": { who: "silence", mood: "neutral", text: "Something is stealing from me." },
+    "run.spotted": { who: "silence", mood: "neutral", text: "I see you, little pilot." },
+    "run.fragGot": { who: "bolt", mood: "happy", text: "Got a piece! Keep to the shadows." },
+    "hst.win": { who: "vega", mood: "happy", text: "Clean heist! Those fragments will light a whole city." },
+    "hst.short": { who: "vega", mood: "happy", text: "Some fragments slipped away. We'll catch them next time." },
+    /* v43 light the beacon */
+    "bcn.b1": { who: "vega", mood: "worried", text: "The Prism beacon went dark. Ships out here are lost." },
+    "lv.beacon": { who: "bolt", mood: "happy", text: "Ride the golden streams. Fifty stars and she lights up!" },
+    "run.beaconHalf": { who: "bolt", mood: "shout", text: "Halfway charged! I can see her glowing!" },
+    "run.beaconLit": { who: "vega", mood: "shout", text: "The beacon is lit! The whole sector can see it!" },
+    "bcn.win": { who: "vega", mood: "happy", text: "Prism Rings is shining. Lost ships are finding home." },
+    "bcn.short": { who: "vega", mood: "happy", text: "The beacon's still warm. A few more stars next time." },
     "lv.finale1": { who: "silence", mood: "neutral", text: "Little pilot. You can't save them all." },
     "lv.finale2": { who: "vega", mood: "happy", text: "Break its core. We believe in you, pilot." },
     /* mid-run lines: at most one every 8 s, never over the warning lane */
@@ -2026,6 +2380,34 @@ button.lk { cursor: pointer; }
     "m10.b2": { who: "vega", mood: "worried", text: "A Silence husk! {goal}." },
     "m10.b3": { who: "vega", mood: "happy", text: "Break its core. We believe in you, pilot." },
     "m10.win": { who: "vega", mood: "shout", text: "The husk is down! Light floods back into the Belt!" },
+    /* v44 chapter 2 "The Dark Belt" (missions 11–20): blackouts, escorts, Kestrel's races, and a signal from inside the Silence */
+    "m11.b1": { who: "vega", mood: "worried", text: "Chapter two. The Dark Belt, where the lights went out." },
+    "m11.b2": { who: "bolt", mood: "happy", text: "{goal}. I added cupholders. You're welcome." },
+    "m11.win": { who: "vega", mood: "happy", text: "You made it through! The Belt's edge is glowing again." },
+    "m12.b1": { who: "bolt", mood: "worried", text: "The forges here run on starlight. They're running low." },
+    "m12.b2": { who: "vega", mood: "neutral", text: "{goal}. Keep those furnaces warm." },
+    "m12.win": { who: "bolt", mood: "shout", text: "Forges roaring! I can finally make toast again!" },
+    "m13.b1": { who: "vega", mood: "worried", text: "A freighter lost power. Its crew took the escape pods." },
+    "m13.win": { who: "vega", mood: "happy", text: "The freighter crew says thank you. They baked you a cake." },
+    "m14.b1": { who: "kestrel", mood: "smirk", text: "Heard you're good now. Prove it. Race me." },
+    "m14.b2": { who: "vega", mood: "happy", text: "{goal}. Fly your own line, pilot." },
+    "m14.win": { who: "kestrel", mood: "shout", text: "Rematch! No, wait. Okay. You win this one." },
+    "m15.b1": { who: "bolt", mood: "neutral", text: "Old mining walls ahead. The gaps are tight." },
+    "m15.b2": { who: "vega", mood: "neutral", text: "{goal}. Steady hands." },
+    "m15.win": { who: "bolt", mood: "happy", text: "Threaded like a needle! Grandma Bolt would be proud." },
+    "m16.win": { who: "vega", mood: "happy", text: "Lamps delivered! The miners on Cinder Moon can see again." },
+    "m17.b1": { who: "vega", mood: "worried", text: "We caught a faint signal. It's coming from inside the Silence." },
+    "m17.b2": { who: "bolt", mood: "neutral", text: "{goal}. I'll try to clean up the static." },
+    "m17.win": { who: "bolt", mood: "worried", text: "One word came through the static. It said: help." },
+    "m18.b1": { who: "silence", mood: "neutral", text: "Turn back, little pilot. There is nothing here." },
+    "m18.win": { who: "vega", mood: "happy", text: "The signal's stronger. Someone is alive in there!" },
+    "m19.b1": { who: "kestrel", mood: "neutral", text: "That signal? I'm flying cover. Don't make it weird." },
+    "m19.b2": { who: "vega", mood: "neutral", text: "{goal}. We need every bit of light." },
+    "m19.win": { who: "vega", mood: "happy", text: "The lamps are charged. Next, we go in after them." },
+    "m20.b1": { who: "nova", mood: "worried", text: "Is someone there? Please. It's so dark in here." },
+    "m20.b2": { who: "vega", mood: "worried", text: "Husk Two is holding a pilot. {goal}." },
+    "m20.b3": { who: "vega", mood: "happy", text: "Break its core and bring her home." },
+    "m20.win": { who: "nova", mood: "happy", text: "You came for me. I'm Nova. Thank you, pilot." },
     /* v33 debriefs. A win cheers; a loss is always kind and moves the story on a little */
     "win.1": { who: "vega", mood: "happy", text: "Mission complete. The galaxy's a little brighter." },
     "win.2": { who: "bolt", mood: "happy", text: "She came back shiny! Great flying." },
@@ -2041,6 +2423,9 @@ button.lk { cursor: pointer; }
     "lore.4": { who: "bolt", mood: "worried", text: "Rumor says a pilot is trapped inside the Silence." },
     "lore.5": { who: "vega", mood: "happy", text: "Every Lightrunner started as a rookie. Even Kestrel." },
     "lore.6": { who: "bolt", mood: "smirk", text: "Kestrel once crashed into my workshop. Twice." },
+    "lore.7": { who: "bolt", mood: "neutral", text: "The Dark Belt had a hundred lighthouses once. We'll relight them." },
+    "lore.8": { who: "vega", mood: "neutral", text: "The Silence was quiet once. Then it got hungry for light." },
+    "lore.9": { who: "kestrel", mood: "smirk", text: "I crashed here plenty too, rookie. Don't tell anyone." },
     "tune.1": { who: "bolt", mood: "happy", text: "I tuned her up. One extra shield, on the house." },
     /* v34 boss entrances: the Silence speaks once before each husk; light floods back when its core breaks */
     "boss.1": { who: "silence", mood: "neutral", text: "More light? I will drink it all." },
@@ -2050,13 +2435,17 @@ button.lk { cursor: pointer; }
     "boss.win": { who: "vega", mood: "shout", text: "Core broken! The light is pouring back in!" },
     "boss.down": { who: "vega", mood: "happy", text: "You broke a husk. That sector is shining again." },
     /* v35 beacon map: a whole sector lit up */
-    "map.lit": { who: "vega", mood: "happy", text: "Every beacon is shining. You lit this whole sector!" }
+    "map.lit": { who: "vega", mood: "happy", text: "Every beacon is shining. You lit this whole sector!" },
+    /* v37 challenge links */
+    "chal.in": { who: "kestrel", mood: "smirk", text: "A friend's ghost is out there. Go catch it." },
+    "chal.win": { who: "kestrel", mood: "smirk", text: "You beat their run! Now send them yours." },
+    "chal.lose": { who: "vega", mood: "happy", text: "What a race! One more and you've got it." }
   };
   /* Husk name plates for the boss entrance: daily runs by order, level finales by world */
   const HUSKS = ["HUSK I", "HUSK II", "HUSK III", "HUSK IV"];
   /* MISSIONS: the story campaign, keyed by level number. Each mission names its briefing and win lines from LINES.
      The goal and the three star checks come from makeLevels, so the rules stay exactly the same. Chapters 2–4 come next. */
-  const CHAPTERS = [{ n: 1, name: "First Light", from: 1, to: 10 }];
+  const CHAPTERS = [{ n: 1, name: "First Light", from: 1, to: 10 }, { n: 2, name: "The Dark Belt", from: 11, to: 20 }];
   const MISSIONS = {
     1: { title: "First Light", brief: ["m1.b1", "m1.b2"], win: "m1.win" },
     2: { title: "Catch the Spark", brief: ["m2.b1", "m2.b2"], win: "m2.win" },
@@ -2067,10 +2456,22 @@ button.lk { cursor: pointer; }
     7: { title: "Kestrel's Dare", brief: ["m7.b1", "m7.b2"], win: "m7.win" },
     8: { title: "Golden Hour", brief: ["m8.b1", "m8.b2"], win: "m8.win" },
     9: { title: "Something Big", brief: ["m9.b1", "m9.b2"], win: "m9.win" },
-    10: { title: "The First Husk", brief: ["m10.b1", "m10.b2", "m10.b3"], win: "m10.win" }
+    10: { title: "The First Husk", brief: ["m10.b1", "m10.b2", "m10.b3"], win: "m10.win" },
+    /* v44 chapter 2. Special mission types keep their how-to tip as the last briefing line */
+    11: { title: "Into the Dark Belt", brief: ["m11.b1", "m11.b2"], win: "m11.win" },
+    12: { title: "Ember Harvest", brief: ["m12.b1", "m12.b2"], win: "m12.win" },
+    13: { title: "Lifeboats", brief: ["m13.b1", "lv.goal", "lv.rescue"], win: "m13.win" },
+    14: { title: "Redline Duel", brief: ["m14.b1", "m14.b2", "lv.race"], win: "m14.win" },
+    15: { title: "Iron Gates", brief: ["m15.b1", "m15.b2"], win: "m15.win" },
+    16: { title: "Lantern Run", brief: ["esc.b1", "lv.goal", "lv.escort"], win: "m16.win" },
+    17: { title: "A Faint Signal", brief: ["m17.b1", "m17.b2"], win: "m17.win" },
+    18: { title: "Lights Out", brief: ["m18.b1", "lv.goal", "lv.blackout"], win: "m18.win" },
+    19: { title: "Charge the Lamps", brief: ["m19.b1", "m19.b2"], win: "m19.win" },
+    20: { title: "Into the Silence", brief: ["m20.b1", "m20.b2", "m20.b3"], win: "m20.win" }
   };
+  const TYPE_TITLES = { 13: "Lifeboats", 14: "Redline Duel", 16: "Lantern Run", 18: "Lights Out", 23: "Core Heist", 27: "Beacon Fire" };
   const chapterOf = n => CHAPTERS.find(c => n >= c.from && n <= c.to) || null;
-  const LOSE_LINES = ["lose.1", "lose.2", "lose.3", "lose.4", "lose.5"], LORE_LINES = ["lore.1", "lore.2", "lore.3", "lore.4", "lore.5", "lore.6"];
+  const LOSE_LINES = ["lose.1", "lose.2", "lose.3", "lose.4", "lose.5"], LORE_LINES = ["lore.1", "lore.2", "lore.3", "lore.4", "lore.5", "lore.6", "lore.7", "lore.8", "lore.9"];
   /* Campaign progress: level runs that missed the goal, and how many world facts have been told. Every 10th miss earns Bolt's free tune-up. */
   save.camp = Object.assign({ fails: 0, lore: 0, tune: false }, isObj(save.camp) ? save.camp : {});
   if (!Number.isInteger(save.camp.fails) || save.camp.fails < 0) save.camp.fails = 0;
@@ -2083,8 +2484,13 @@ button.lk { cursor: pointer; }
   let tuneNext = false;
   /** Pick the debrief line for a finished level run, and update campaign progress. */
   function levelDebrief(L, met, quit) {
-    if (met) { const M = MISSIONS[L.n]; return { id: M ? M.win : (L.n % 2 ? "win.1" : "win.2") }; }
+    if (met) { const M = MISSIONS[L.n]; return { id: M ? M.win : L.type === "escort" ? "esc.home" : L.type === "rescue" ? "res.home" : L.type === "blackout" ? "blk.home" : L.type === "race" ? "rac.win" : L.type === "heist" ? "hst.win" : L.type === "beacon" ? "bcn.win" : (L.n % 2 ? "win.1" : "win.2") }; }
+    if (me && me.escLost) { save.camp.fails++; return { id: "esc.lost" }; }
+    if (L.type === "rescue" && me && me.podLost > 0 && !quit) { save.camp.fails++; return { id: "res.short" }; }
+    if (L.type === "heist" && me && me.lives > 0 && !quit) { save.camp.fails++; return { id: "hst.short" }; }
+    if (L.type === "beacon" && me && me.beaconLit == null && me.lives > 0 && !quit) { save.camp.fails++; return { id: "bcn.short" }; }
     if (quit) return { id: "lose.5" };
+    if (L.type === "race" && me && me.lives > 0) { save.camp.fails++; return { id: "rac.lose" }; }
     const c = save.camp; c.fails++;
     let tune = false;
     if (c.fails % 10 === 0 && !c.tune) { c.tune = true; tune = true; }
@@ -2116,6 +2522,8 @@ button.lk { cursor: pointer; }
   }
   sfx.crackle = () => { noiseBurst(calm() ? 0.12 : 0.22, calm() ? 0.03 : 0.06, 2200); tone(1320, 0.06, "square", 0.035, 0, 0.2); };
   sfx.blip = f => tone(f * (0.96 + Math.random() * 0.08), 0.028, "square", 0.016);
+  sfx.fever = () => { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .12, "square", .045, 0, i * .045)); tone(130, .5, "sawtooth", .06, 260); };
+  sfx.feverOut = () => [880, 740, 587].forEach((f, i) => tone(f, .14, "triangle", .05, 0, i * .07));
   sfx.launch = () => { tone(70, 1.0, "sawtooth", 0.11, 300); tone(140, 0.7, "square", 0.04, 500, 0.1); noiseBurst(0.9, 0.07, 500); };
 
   /* Crew portraits: stylized faces in a 64-unit box. mood: neutral | happy | worried | smirk | shout. */
@@ -2145,6 +2553,7 @@ button.lk { cursor: pointer; }
     /* hair or helmet behind the head */
     if (who === "vega") { g.fillStyle = C.hair; g.beginPath(); g.ellipse(0, -3, 16, 17, 0, 0, 6.283); g.fill(); g.fillRect(-16, -3, 32, 14); }
     if (who === "kestrel") { g.fillStyle = C.color; g.beginPath(); g.ellipse(0, -3, 17, 18.5, 0, 0, 6.283); g.fill(); }
+    if (who === "nova") { g.fillStyle = C.hair; g.beginPath(); g.ellipse(0, -2, 16, 16.5, 0, 0, 6.283); g.fill(); g.fillRect(-16, -2, 32, 12); }
     /* face */
     g.fillStyle = C.skin; g.beginPath(); g.ellipse(0, -1, 12.5, 14.5, 0, 0, 6.283); g.fill();
     g.beginPath(); g.ellipse(-12.3, 0, 2.2, 3.4, 0, 0, 6.283); g.ellipse(12.3, 0, 2.2, 3.4, 0, 0, 6.283); g.fill();
@@ -2164,6 +2573,13 @@ button.lk { cursor: pointer; }
       for (const s of [-1, 1]) { g.fillStyle = C.color; g.beginPath(); g.arc(s * 5.6, -9, 4.4, 0, 6.283); g.fill(); g.fillStyle = "#9fe8ff"; g.beginPath(); g.arc(s * 5.6, -9, 2.8, 0, 6.283); g.fill(); g.fillStyle = "rgba(255,255,255,.8)"; g.fillRect(s * 5.6 - 1.6, -10.8, 1.4, 1.4); }
       g.fillStyle = hx(C.skinD, .9); for (const [x, y] of [[-7, 4], [-5, 5.5], [-8.5, 5.5], [7, 4], [5, 5.5], [8.5, 5.5]]) { g.beginPath(); g.arc(x, y, .7, 0, 6.283); g.fill(); }
       g.fillStyle = "rgba(40,30,30,.35)"; g.beginPath(); g.ellipse(8, 8, 2.6, 1.3, -.4, 0, 6.283); g.fill();
+    }
+    if (who === "nova") {
+      g.fillStyle = C.hair; g.beginPath(); g.moveTo(-13.5, 4); g.quadraticCurveTo(-15, -16, 1, -16.5); g.quadraticCurveTo(14, -16, 13.5, 2);
+      g.quadraticCurveTo(11, -8, 3, -10); g.quadraticCurveTo(-6, -4, -13.5, 4); g.fill();
+      g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = 1; g.beginPath(); g.moveTo(-9, -11); g.quadraticCurveTo(-2, -14.5, 6, -13); g.stroke();
+      g.fillStyle = "#9fe8ff"; g.beginPath(); g.arc(9.5, -9.5, 3, 0, 6.283); g.fill();
+      g.fillStyle = C.hair; g.beginPath(); g.arc(10.8, -10.6, 2.4, 0, 6.283); g.fill();
     }
     if (who === "kestrel") {
       g.fillStyle = C.color; g.beginPath(); g.ellipse(0, -4, 16.5, 16, 0, Math.PI, 0); g.fill();
@@ -2264,6 +2680,8 @@ button.lk { cursor: pointer; }
     if (!world) return false;
     for (const e of world.events) if (e.type === "streaks" && t >= e.t - 60 && t < e.t + e.dur + 20 && !CR.eventHidden(world, e)) return true;
     if (world.flaresLive) for (const f of world.flaresLive) if (t >= f.t - 70 && t < f.t + f.dur) return true;
+    if (world.rescue) for (const p of world.rescue.pods) if (t >= p.t - 90 && t < p.t + 70) return true; /* v39: a pod is entering */
+    if (world.heist) for (const f of world.heist.frags) if (t >= f.t - 60 && t < f.t + 60) return true; /* v42: a fragment is entering */
     return false;
   }
   /** A short mid-run line. At most one every 8 s and 4 per run, never during tips or over warnings. Returns true if shown. */
@@ -2314,9 +2732,15 @@ button.lk { cursor: pointer; }
   function briefIdsForLevel(L) {
     if (L.n === 1 && firstFlight()) return ["first.1", "first.2", "first.3"];
     const M = MISSIONS[L.n];
-    if (M) return M.brief.map(id => ({ id, vars: { n: L.n, goal: L.goalText } }));
+    if (M) return M.brief.map(id => ({ id, vars: { n: L.n, goal: L.goalText } })); /* v44: "lv.goal" works here too */
     if (L.finale) return ["lv.finale1", { id: "lv.goal", vars: { n: L.n, goal: L.goalText } }, "lv.finale2"];
     const ids = [{ id: "lv.goal", vars: { n: L.n, goal: L.goalText } }, "lv." + L.type];
+    if (L.type === "escort") ids.unshift("esc.b1");
+    if (L.type === "rescue") ids.unshift("res.b1");
+    if (L.type === "blackout") ids.unshift("blk.b1");
+    if (L.type === "heist") ids.unshift("hst.b1");
+    if (L.type === "beacon") ids.unshift("bcn.b1");
+    if (L.type === "race") return ["rac.b1", { id: "lv.goal", vars: { n: L.n, goal: L.goalText } }, "lv.race"];
     if (L.n === 4 || L.n === 7) ids.push("lv.rival");
     return ids;
   }
@@ -2379,7 +2803,7 @@ button.lk { cursor: pointer; }
     if (pbLive) pbLive.roll = 0;
     tutStart();
     radioStop(); RAD.lastMid = -1e9; RAD.mids = 0; RAD.said = new Set();
-    bossCine = new Map(); lightBack = null;
+    bossCine = new Map(); lightBack = null; beaconFx = null; podFx = new Map(); raceLead = 0; fragFx = new Map(); spotFx = 0;
     hideOverlays(); $("#toast").hidden = true;
     state = "play"; last = performance.now(); $("#pausebtn").hidden = false; $("#paused").hidden = true;
     if (tuned) setTimeout(() => { if (state === "play") toast("Bolt's tune-up · +1 shield", true); }, 2600);
@@ -2477,8 +2901,8 @@ button.lk { cursor: pointer; }
   }
 
   // ---------- levels UI ----------
-  let curLevel = null, mapWorld = null, levelGoalToasted = false;
-  const OVERLAYS = ["#start", "#over", "#hangar", "#shop", "#levels", "#paused", "#trophies", "#settings", "#radio", "#tapnext", "#skipbrief"];
+  let curLevel = null, mapWorld = null, levelGoalToasted = false, raceLead = 0;
+  const OVERLAYS = ["#start", "#over", "#hangar", "#shop", "#levels", "#paused", "#trophies", "#settings", "#radio", "#tapnext", "#skipbrief", "#chal"];
   function hideOverlays() { OVERLAYS.forEach(id => $(id).hidden = true); }
   const starRow = (n, max = 3) => Array.from({ length: max }, (_, i) => i < n ? "<i>★</i>" : "★").join("");
   function rankHTML(gain) {
@@ -2510,7 +2934,7 @@ button.lk { cursor: pointer; }
     const bg = `radial-gradient(circle at 50% 6%, ${hx(WD.color, .38)}, transparent 55%), radial-gradient(circle at 15% 72%, ${hx(th.b, .16)}, transparent 45%), radial-gradient(circle at 85% 40%, ${hx(WD.color, .14)}, transparent 40%), radial-gradient(circle, rgba(238,240,255,.55) 0 1px, transparent 1.6px) 0 0 / 37px 41px, radial-gradient(circle, rgba(238,240,255,.3) 0 1px, transparent 1.6px) 13px 19px / 53px 47px, linear-gradient(${th.sky}, #070a1a)`;
     const beacons = Array.from({ length: 10 }, (_, i) => {
       const n = w * 10 + i + 1, st = save.levels[n] || 0, ok = LV.levelOpen(save.levels, n), x = beaconX(i), y = beaconY(i);
-      const M = MISSIONS[n], title = M ? M.title : TH.forLevel(n).name, right = x <= 50;
+      const M = MISSIONS[n], title = M ? M.title : TYPE_TITLES[n] || TH.forLevel(n).name, right = x <= 50;
       const cls = ["bcn", i === 9 ? "boss" : "", st ? "done" : "", n === nx ? "next" : "", n === sel ? "sel" : ""].join(" ");
       const pos = `left:${x}%;top:${y}px`;
       return `<button class="${cls}" data-lv="${n}" ${ok ? "" : "disabled"} style="${pos};--d:${(i * 0.07).toFixed(2)}s" aria-label="Mission ${n}, ${title}${ok ? `, ${st} of 3 stars` : ", locked"}">${i === 9 ? "BOSS" : n}</button>
@@ -2548,14 +2972,20 @@ button.lk { cursor: pointer; }
       const lives = Math.max(1, ship.lives - L.shieldCut);
       const th = TH.forLevel(briefN);
       brief = `<div class="brief" style="--wc:${th.a}"><canvas class="prev" id="lv-prev" width="600" height="250" aria-label="Preview of ${th.name}"></canvas>
-        <div class="whead"><h3>${MISSIONS[briefN] ? MISSIONS[briefN].title : `Level ${briefN}`}</h3><span>${L.dur}s · ${lives} shield${lives > 1 ? "s" : ""}</span></div>
+        <div class="whead"><h3>${MISSIONS[briefN] ? MISSIONS[briefN].title : TYPE_TITLES[briefN] || `Level ${briefN}`}</h3><span>${L.dur}s · ${lives} shield${lives > 1 ? "s" : ""}</span></div>
         <div class="tname">Level ${briefN}${L.finale ? " · Boss" : ""} · ${th.name}</div>
         <div class="goal">${L.goalText}</div>
         ${L.world.flaresLive && L.world.flaresLive.length ? `<div class="next">Solar flare at 0:${String(Math.round(L.world.flaresLive[0].t / TPS)).padStart(2, "0")}: slide out of the <b style="color:#ff9a4d">orange columns</b> before they burn.</div>` : ""}
+        ${L.type === "rescue" ? `<div class="next">Rescue: touch a falling <b style="color:#bfe6ff">escape pod</b> to catch it. Its dotted line shows where it drifts. Low down, a rock can bump it away.</div>` : ""}
+        ${L.type === "blackout" ? `<div class="next">Blackout: the lights go out 3 s in. Only your <b style="color:var(--tide)">lamp</b> stays lit, and every <b style="color:var(--gold)">★</b> you catch makes it shine farther. Rocks glow at the edge of the dark.</div>` : ""}
+        ${L.type === "heist" ? `<div class="next">Heist: grab the falling <b style="color:var(--tide)">◆ core fragments</b>. Keep out of the <b style="color:var(--hurt)">red searchlight</b>: being spotted costs a shield, never the run.</div>` : ""}
+        ${L.type === "beacon" ? `<div class="next">Beacon: <b style="color:var(--gold)">golden light streams</b> snake down the sky. Every mote counts as a ★. Catch ${L.goal} in one run to light the beacon.</div>` : ""}
+        ${L.type === "race" ? `<div class="next">Race: Kestrel's <b style="color:#f06ad0">pink ghost</b> flies the same course. Top right shows who's ahead. Beat her score by the finish line.</div>` : ""}
+        ${L.type === "escort" ? `<div class="next">Escort: stay inside the <b style="color:var(--tide)">teal ring</b> around the Light Ship. Rocks you touch there are blocked. 3 rocks on the ship and it turns back.</div>` : ""}
         ${L.finale ? `<div class="next">Mothership boss: dodge the <b style="color:var(--hurt)">red bullets</b>, catch ${CR.BOSS_HP} <b style="color:var(--tide)">◆ cores</b> to destroy it.</div>` : ""}
-        <div class="crit"><div><span class="s ${best >= 1 ? "" : "off"}">★</span>${L.type === "survive" || L.type === "finale" ? "Reach the finish" : "Complete the goal and reach the finish"}</div>
+        <div class="crit"><div><span class="s ${best >= 1 ? "" : "off"}">★</span>${L.type === "survive" || L.type === "finale" || L.type === "blackout" ? "Reach the finish" : L.type === "escort" ? "Bring the Light Ship to the finish" : L.type === "race" ? "Beat Kestrel to the finish" : "Complete the goal and reach the finish"}</div>
           <div><span class="s ${best >= 2 ? "" : "off"}">★</span>Score ${L.par.toLocaleString()} or more</div>
-          <div><span class="s ${best >= 3 ? "" : "off"}">★</span>Finish with full shields, or score ${L.par3.toLocaleString()}+</div></div>
+          <div><span class="s ${best >= 3 ? "" : "off"}">★</span>${L.type === "escort" ? "Light Ship unharmed" : L.type === "rescue" ? `All ${L.podN} pods rescued` : L.type === "heist" ? "Never spotted" : L.type === "beacon" ? `Lit with ${LV.BEACON_SPARE}s to spare` : "Finish with full shields"}, or score ${L.par3.toLocaleString()}+</div></div>
         <button class="btn pulse" id="lv-go">${best ? "Play again" : "Play level"}</button></div>`;
     }
     o.innerHTML = `<div class="h-top"><h2>Levels</h2><span class="chip">★ <b style="color:var(--gold)">${total}</b>/${LV.COUNT * 3}</span></div>
@@ -2580,13 +3010,13 @@ button.lk { cursor: pointer; }
   function playLevel(n, withBrief) {
     const ids = withBrief ? briefIdsForLevel(LV.get(n)) : null;
     curLevel = LV.get(n); mode = "level"; theme = TH.forLevel(n); themeBase = n - 1;
-    world = curLevel.world; ghost = curLevel.ghost; rocks.clear();
+    world = curLevel.world; ghost = curLevel.rival ? Object.assign({ name: "Kestrel", col: CREW.kestrel.color, race: true }, curLevel.rival) : curLevel.ghost; rocks.clear();
     hideOverlays();
     if (withBrief) brief("lv" + n, ids, start); else start();
   }
   function levelTick() {
     const L = curLevel, pr = LV.progress(L, me);
-    if (!levelGoalToasted && pr.met && L.type !== "survive" && L.type !== "finale") { levelGoalToasted = true; toast("Goal complete! Reach the finish", true); sfx.mission(); }
+    if (!levelGoalToasted && pr.met && L.type !== "survive" && L.type !== "finale" && L.type !== "blackout" && L.type !== "beacon") { levelGoalToasted = true; toast("Goal complete! Reach the finish", true); sfx.mission(); }
     if (me.t >= L.durT && me.alive && state === "play") {
       state = "dying"; $("#pausebtn").hidden = true;
       burst(me.x, me.y, "#4fe0cf", 40); flash = { c: "79,224,207", a: .45 }; sfx.best();
@@ -2608,22 +3038,32 @@ button.lk { cursor: pointer; }
     bumpStreak();
     const xp = LV.runXP(me, gained), ups = LV.addXP(save, xp);
     let upCoins = 0; ups.forEach(lv => { upCoins += LV.levelUpCoins(lv); }); save.coins += upCoins;
+    if (finished && res.met && L.type === "escort") save.rec.escorts = (save.rec.escorts || 0) + 1;
+    if (L.type === "rescue") save.rec.pods = (save.rec.pods || 0) + me.pods;
+    if (finished && res.met && L.type === "race") save.rec.races = (save.rec.races || 0) + 1;
+    if (finished && res.met && L.type === "blackout") save.rec.blackouts = (save.rec.blackouts || 0) + 1;
+    if (finished && res.met && L.type === "heist") save.rec.heists = (save.rec.heists || 0) + 1;
+    if (me.beaconLit != null) save.rec.beacons = (save.rec.beacons || 0) + 1;
     trophyEnd(me, false);
     persist(); paintChips();
     const pr = LV.progress(L, me), nextOk = n < LV.COUNT && LV.levelOpen(save.levels, n + 1);
     const worldNowOpen = L.w < 3 && gained > 0 && LV.worldOpen(save.levels, L.w + 1) && LV.total(save.levels) - gained < LV.WORLDS[L.w + 1].need;
     /* v33: kind wording. A loss says how far you got, never "failed" */
-    const reason = !finished ? (!me.quit && me.lives <= 0 ? `You made it to ${CR.fmtTime(me.t / TPS)} of ${CR.fmtTime(L.dur)}` : "Run ended early") : `So close: ${pr.have.toLocaleString()}/${pr.need.toLocaleString()}`;
+    const reason = me.escLost ? `The Light Ship turned back at ${CR.fmtTime(me.t / TPS)}` : !finished ? (!me.quit && me.lives <= 0 ? `You made it to ${CR.fmtTime(me.t / TPS)} of ${CR.fmtTime(L.dur)}` : "Run ended early") : L.type === "race" ? `Kestrel won by ${(pr.need - pr.have).toLocaleString()}` : `So close: ${pr.have.toLocaleString()}/${pr.need.toLocaleString()}`;
     const db = levelDebrief(L, res.met, !!me.quit), M = MISSIONS[n], ch = chapterOf(n);
+    /* v36 (fun plan 3): a near miss shows how close it was */
+    const nearF = res.met || me.quit ? 0 : finished ? pr.have / pr.need : me.t / L.durT;
+    const closeLine = nearF >= 0.85 ? closeHTML(finished ? (L.type === "race" ? `So close! ${(pr.need - pr.have).toLocaleString()} more and you'd have passed her` : `So close! ${(pr.need - pr.have).toLocaleString()} more next time`) : `So close! ${Math.max(1, Math.ceil((L.durT - me.t) / TPS))}s from the finish`, nearF) : "";
     persist();
-    const o = $("#over"), lit = me.bossesDown > 0;
+    const o = $("#over"), lit = me.bossesDown > 0 || me.beaconLit != null;
     o.classList.toggle("lit", lit);
     o.innerHTML = `<div class="eyebrow ${res.met ? "hot" : ""}">${M ? `Chapter ${ch.n} · Mission ${n}` : `Level ${n} · ${TH.forLevel(n).name}`}</div>
       <h2>${res.met ? (gained ? "Cleared!" : "Complete") : "Not yet"}</h2>
-      ${M ? `<div class="tname" style="--wc:${LV.WORLDS[L.w].color}">${M.title}</div>` : ""}
-      ${lit ? `<div class="litline">Light returned to the sector</div>` : ""}
+      ${M || TYPE_TITLES[n] ? `<div class="tname" style="--wc:${LV.WORLDS[L.w].color}">${M ? M.title : TYPE_TITLES[n]}</div>` : ""}
+      ${lit ? `<div class="litline">${me.beaconLit != null ? "The beacon is lit" : "Light returned to the sector"}</div>` : ""}
       ${debriefHTML(db.id)}
       ${res.met ? `<div class="bigstars">${[0, 1, 2].map(i => `<span class="${i < res.stars ? "on" : ""}">★</span>`).join("")}</div>` : `<div class="verdict lose">${reason}</div>`}
+      ${closeLine}
       <div class="panel"><div class="crit">${res.checks.map(c => `<div><span class="${c.ok ? "s" : "x"}">${c.ok ? "★" : "✕"}</span>${c.text}</div>`).join("")}</div></div>
       <div class="stats"><div><b>${me.score.toLocaleString()}</b><span>score</span></div><div><b>${me.stars}</b><span>stars</span></div><div><b>×${me.maxMult}</b><span>combo</span></div></div>
       <div class="earn">+${starCoins + runCoins + upCoins} ◉${gained ? ` · ${gained} new ★` : ""}</div>
@@ -2631,13 +3071,14 @@ button.lk { cursor: pointer; }
       ${worldNowOpen ? `<div class="lvup" style="color:var(--gold)">New world unlocked: ${LV.WORLDS[L.w + 1].name}</div>` : ""}
       ${trophyLineHTML()}
       ${rankHTML(xp)}
+      ${nextGoalHTML(me)}
       <div class="duo">${res.met && nextOk ? `<button class="btn pulse" id="lv-next">Next level</button><button class="btn alt" id="lv-retry">Retry</button>` : !res.met && save.camp.tune ? `<button class="btn pulse" id="lv-tune">Retry · +1 shield</button><button class="btn alt" id="lv-retry">Retry</button>` : `<button class="btn pulse" id="lv-retry">${res.met ? "Play again" : "Retry"}</button>`}</div>
       ${!res.met && save.camp.tune ? `<p class="fine">Bolt's tune-up: one free extra shield for your next level run. Use it now or keep it for later.</p>` : ""}
       <div class="btns"><button class="btn alt" id="lv-map">Level map</button><button class="btn alt" id="ships">Hangar</button><button class="btn alt" id="over-tro">🏆 Trophies</button></div>`;
     o.hidden = false; guardOver(o);
     $("#over-tro").onclick = () => openTrophies(backToOver);
     if (res.met) setTimeout(() => sfx.mission(), 300);
-    if (ups.length) setTimeout(() => { sfx.best(); toast(`Rank up! Pilot Lv ${save.pilot}`, true); }, 700);
+    if (ups.length) setTimeout(() => sfx.best(), 700);
     $("#lv-retry").onclick = () => playLevel(n);
     const tb = $("#lv-tune"); if (tb) tb.onclick = () => { tuneNext = true; playLevel(n); };
     paintDebrief(o);
@@ -2650,7 +3091,9 @@ button.lk { cursor: pointer; }
     const L = curLevel, pr = LV.progress(L, me), left = Math.max(0, L.durT - t) / TPS;
     ctx.textAlign = "right"; ctx.font = "600 11px 'Chakra Petch', sans-serif";
     ctx.fillStyle = pr.met ? "#4fe0cf" : "#eef0ff";
-    const g = L.type === "survive" || L.type === "finale" ? `LV ${L.n} · FINISH` : `LV ${L.n} · ${L.type === "golden" ? "GOLDEN ★" : L.type.toUpperCase()} ${Math.min(pr.have, pr.need).toLocaleString()}/${pr.need.toLocaleString()}`;
+    const kl = L.type === "race" ? me.score - CR.rivalScore(L.rival, t) : 0;
+    if (L.type === "race") ctx.fillStyle = kl >= 0 ? "#4fe0cf" : CREW.kestrel.color;
+    const g = L.type === "race" ? `LV ${L.n} · KESTREL ${t >= L.rival.t ? "OUT" : (kl >= 0 ? "+" : "−") + Math.abs(kl).toLocaleString()}` : L.type === "blackout" ? `LV ${L.n} · LAMP ${me.lamp}/${CR.LAMP_MAX}` : L.type === "beacon" ? `LV ${L.n} · ${me.beaconLit != null ? "BEACON LIT" : `BEACON ${Math.min(me.stars, L.goal)}/${L.goal}`}` : L.type === "heist" ? `LV ${L.n} · CORES ${Math.min(me.frags, L.goal)}/${L.goal}` : L.type === "escort" ? `LV ${L.n} · ESCORT ${Math.max(0, me.escHp == null ? 3 : me.escHp)}/3` : L.type === "survive" || L.type === "finale" ? `LV ${L.n} · FINISH` : `LV ${L.n} · ${L.type === "golden" ? "GOLDEN ★" : L.type.toUpperCase()} ${Math.min(pr.have, pr.need).toLocaleString()}/${pr.need.toLocaleString()}`;
     ctx.fillText(`${g} · ${Math.ceil(left)}s`, W - 14, 46);
     ctx.fillStyle = "rgba(141,147,191,.25)"; ctx.fillRect(0, 54, W, 3);
     ctx.fillStyle = pr.met ? "#4fe0cf" : LV.WORLDS[L.w].color; ctx.fillRect(0, 54, W * Math.min(1, t / L.durT), 3);
@@ -3000,10 +3443,11 @@ button.lk { cursor: pointer; }
   function playMain() {
     if (state === "menu" && firstFlight()) { audio(); playLevel(1, true); }
     else if (state === "menu" && mode === "daily") brief("day" + day, DAILY_BRIEFS[day % DAILY_BRIEFS.length], start);
+    else if (state === "menu" && mode === "challenge") brief("chal", ["chal.in"], start);
     else start();
   }
   function showStart() {
-    if (mode === "level") setup(true);
+    if (mode === "level" || mode === "challenge") setup(true);
     curLevel = null;
     state = "menu";
     const o = $("#start"), p = world.partner;
@@ -3120,6 +3564,7 @@ button.lk { cursor: pointer; }
   stage.addEventListener("pointerup", () => { finger = null; });
   stage.addEventListener("pointercancel", () => { finger = null; });
   addEventListener("keydown", e => {
+    if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return; /* v37: typing a name never steers or starts a run */
     if (state === "brief") { if (e.key === "Escape") skipBrief(); else if (e.key === " " || e.key === "Enter") { e.preventDefault(); radioTap(); } return; }
     if (e.key === "Escape" || e.key === "p") { if (state === "play") pause(); else if (state === "paused") resume(); return; }
     if (e.key === "ArrowLeft" || e.key === "a") { keys.l = true; e.preventDefault(); }
@@ -3169,7 +3614,11 @@ button.lk { cursor: pointer; }
     for (const p of trail) p.y += 3 + me.t / 1800;
     trail.push({ x: me.x, y: me.y + 12 }); if (trail.length > 18) trail.shift();
     if (save.trail === "sparks" && me.t % 2 === 0) particles.push({ x: me.x + (Math.random() - .5) * 8, y: me.y + 14, vx: (Math.random() - .5) * 1.2, vy: 2 + Math.random() * 2, life: 18 + Math.random() * 10, color: Math.random() < .5 ? "#ffcc4d" : "#ff7a3d" });
+    let feverNow = false;
     for (const e of ev) {
+      /* v36 (fun plan 2): Fever starts at ×5 and ends on a hit or when the bar runs out */
+      if (e.type === "fever") { feverNow = true; toast(`FEVER · stars ×2 for ${Math.round(e.dur / TPS)}s`, true); sfx.fever(); vibrate([20, 30, 20]); if (!calm()) flash = { c: "255,150,70", a: .3 }; }
+      if (e.type === "feverEnd" && !e.hit && me.alive) { if (e.pts > 0) toast(`Fever bonus +${e.pts.toLocaleString()}`, true); sfx.feverOut(); }
       if (e.type === "survived") floaters.push({ x: W / 2, y: H * 0.42, t: 0, text: e.event === "well" ? "BLACK HOLE CLOSED +100" : e.event === "flare" ? "FLARE SURVIVED +100" : "SURVIVED +100", color: e.event === "well" ? "#c58bff" : e.event === "flare" ? "#ff9a4d" : "#4fe0cf", size: 18 });
       if (e.type === "siphon") { floaters.push({ x: me.x, y: me.y - 44, t: 0, text: "SIPHON · SHIELD +1", color: "#5aa9ff", size: 15 }); flash = { c: "90,169,255", a: .3 }; rings.push({ x: me.x, y: me.y, r: 8, max: 70, c: "159,232,255", v: 4, w: 2 }); sfx.power(); vibrate(25); }
       if (e.type === "guard") { floaters.push({ x: me.x, y: me.y - 40, t: 0, text: "COMBO SAVED", color: "#ffcc4d", size: 15 }); }
@@ -3178,7 +3627,8 @@ button.lk { cursor: pointer; }
       if (e.type === "star" && e.mult >= 5) radioSay("run.combo", true);
       if (e.type === "hit" && me.alive) radioSay("run.hit", true);
       if (e.type === "star" && e.gold) { burst(e.x, e.y, "#ffffff", 30); burst(e.x, e.y, "#ffcc4d", 30); shake = 8; flash = { c: "255,230,150", a: .4 }; sfx.best(); toast(`Golden star +${e.pts}`, true); }
-      if (e.type === "star") { burst(e.x, e.y, "#ffcc4d", 10 + e.mult * 2); floaters.push({ x: e.x, y: e.y, t: 0, text: "+" + e.pts, color: "#ffcc4d", size: 14 + e.mult * 2 }); sfx.star(); if (e.mult > 1 && me.combo % 3 === 0) { toast(`Combo ×${e.mult}`, true); } }
+      if (e.type === "star" && e.mote) { burst(e.x, e.y, "#ffe08a", lowGfx() ? 3 : 6); sfx.star(); if (e.mult > 1 && me.combo % 3 === 0 && !feverNow) toast(`Combo ×${e.mult}`, true); }
+      else if (e.type === "star") { burst(e.x, e.y, "#ffcc4d", 10 + e.mult * 2); floaters.push({ x: e.x, y: e.y, t: 0, text: "+" + e.pts, color: "#ffcc4d", size: 14 + e.mult * 2 }); sfx.star(); if (e.mult > 1 && me.combo % 3 === 0 && !feverNow) { toast(`Combo ×${e.mult}`, true); } }
       if (e.type === "near") {
         floaters.push({ x: e.x, y: e.y, t: 0, text: "CLOSE +" + e.pts, color: "#4fe0cf", size: 13 }); sfx.near(); shake = Math.max(shake, 3);
         if (slowCool <= 0 && hitStopMs <= 0) { slowMs = SLOW_LEN; slowCool = 1400; nearRing = { t: 0 }; flash = flash || { c: "79,224,207", a: .22 }; }
@@ -3189,6 +3639,27 @@ button.lk { cursor: pointer; }
         if (e.power === "nova") { runNovas++; rings.push({ x: me.x, y: me.y, r: 10, max: CR.NOVA_R, color: "#ffffff" }); shake = 10; flash = { c: "255,255,255", a: .5 }; hitStop(70); }
         if (e.power === "shield") flash = { c: "90,169,255", a: .35 };
       }
+      /* v38 escort: blocks shatter the rock; a hit on the Light Ship dims one of its lights */
+      if (e.type === "block") { const a = rockAt(e.x, e.y, me.t, true); if (a) shatter(a, me.t, 1.4); else burst(e.x, e.y, "#4fe0cf", 14); floaters.push({ x: e.x, y: e.y, t: 0, text: "BLOCK +" + e.pts, color: "#4fe0cf", size: 15 }); rings.push({ x: me.x, y: me.y, r: 10, max: 46, c: "79,224,207", v: 3, w: 2 }); sfx.core(); shake = Math.max(shake, 3); vibrate(15); }
+      if (e.type === "escHit") { const a = rockAt(e.x, e.y, me.t, true); if (a) shatter(a, me.t, 1); else burst(e.x, e.y, "#ff7a3d", 14); escFlash = 18; shake = Math.max(shake, 7); sfx.hit(); vibrate(40); flash = { c: "255,150,90", a: .25 }; if (e.hp > 0) { toast(`Light Ship hit · ${e.hp} light${e.hp > 1 ? "s" : ""} left`); radioSay("run.escHit", true); } }
+      /* v39 rescue: a caught pod docks into your ship; a bumped one drifts off, safe */
+      if (e.type === "pod") { podFx.set(e.id, { at: me.t, x: e.x, y: e.y }); burst(e.x, e.y, "#bfe6ff", 22); burst(e.x, e.y, "#ffffff", 8); rings.push({ x: e.x, y: e.y, r: 6, max: 60, c: "191,230,255", v: 3.5, w: 2 }); floaters.push({ x: e.x, y: e.y - 14, t: 0, text: `RESCUED +${e.pts}`, color: "#bfe6ff", size: 16 }); sfx.mission(); vibrate(25); radioSay("run.podGot", true); }
+      if (e.type === "podLost") { podFx.set(e.id, { at: me.t, x: e.x, y: e.y, lost: true }); if (e.why === "rock") { const a = rockAt(e.rx, e.ry, me.t, true); if (a) shatter(a, me.t, 1); } floaters.push({ x: e.x, y: Math.min(e.y, H - 40) - 14, t: 0, text: "POD DRIFTED OFF", color: "#8d93bf", size: 13 }); sfx.feverOut(); radioSay("run.podLost", true); }
+      /* v40 blackout: a star caught in the dark feeds the lamp */
+      if (e.type === "lamp") { rings.push({ x: me.x, y: me.y, r: 12, max: CR.LAMP_R0 + e.n * CR.LAMP_STEP, c: "255,214,150", v: 5, w: 2 }); floaters.push({ x: me.x, y: me.y - 40, t: 0, text: e.n >= CR.LAMP_MAX ? "LAMP FULL GLOW" : `LAMP ${e.n}/${CR.LAMP_MAX}`, color: "#ffe08a", size: 14 }); if (e.n >= CR.LAMP_MAX) radioSay("run.lampFull", true); }
+      /* v42 heist: a stolen fragment flies into your hold; being spotted flashes red and costs a shield (never the last) */
+      if (e.type === "frag") { fragFx.set(e.id, { at: me.t, x: e.x, y: e.y }); burst(e.x, e.y, "#4fe0cf", 20); burst(e.x, e.y, "#ffffff", 6); floaters.push({ x: e.x, y: e.y - 14, t: 0, text: `FRAGMENT +${e.pts}`, color: "#4fe0cf", size: 16 }); sfx.core(); vibrate(20); radioSay("run.fragGot", true); }
+      if (e.type === "spotted") { spotFx = 30; flash = { c: "255,79,98", a: .35 }; shake = Math.max(shake, 6); sfx.alarm(); vibrate([30, 30, 30]); floaters.push({ x: Math.max(92, Math.min(W - 92, me.x)), y: me.y - 42, t: 0, text: e.lost ? "SPOTTED · SHIELD −1" : "SPOTTED", color: "#ff8a96", size: 15 }); if (e.n === 1) radioSay("run.spotted", true); }
+      /* v43 beacon: the light pours up from your ship into the sky */
+      if (e.type === "beaconLit") {
+        beaconFx = { t: me.t, x: e.x, y: e.y }; flash = { c: "255,224,138", a: .5 }; shake = Math.max(shake, 8); hitStop(120); vibrate([40, 30, 80]);
+        sfx.boom(); burst(e.x, e.y, "#ffe08a", 34); burst(e.x, e.y, "#ffffff", 14);
+        rings.push({ x: e.x, y: e.y, r: 8, max: 300, c: "255,224,138", v: 7, w: 4 }, { x: e.x, y: e.y, r: 2, max: 190, c: "255,255,255", v: 5, w: 2 });
+        floaters.push({ x: W / 2, y: H * 0.36, t: 0, text: "BEACON LIT", color: "#ffcc4d", size: 26 }, { x: W / 2, y: H * 0.36 + 28, t: 0, text: `+${e.pts}`, color: "#ffe08a", size: 18 });
+        RAD.lastMid = -1e9; radioSay("run.beaconLit");
+      }
+      if (e.type === "star" && e.mote && curLevel && curLevel.type === "beacon" && me.stars === Math.floor(curLevel.goal / 2)) radioSay("run.beaconHalf", true);
+      if (e.type === "escLost") { escLostAt = performance.now(); sfx.feverOut(); toast("The Light Ship turned back"); }
       if (e.type === "smash") { const a = rockAt(e.x, e.y, me.t, true); if (a) shatter(a, me.t, 1.6); else burst(e.x, e.y, "#ff7a3d", 14); }
       if (e.type === "hit") {
         burst(me.x, me.y, "#ff7a3d", 18); shake = 14; flash = { c: "255,79,98", a: .45 }; sfx.hit(); vibrate(60);
@@ -3235,11 +3706,19 @@ button.lk { cursor: pointer; }
       sfx.siren(); sfx.rumble(); vibrate([40, 60, 40]); $("#toast").hidden = true; radioStop();
       if (full) { RAD.lastMid = -1e9; RAD.said.delete("boss." + (bossIdx(i) + 1)); radioPlay(["boss." + (bossIdx(i) + 1)], "mini"); RAD.lastMid = me.t; }
     });
-    if (curLevel && curLevel.durT >= TPS * 24 && me.t === Math.floor(curLevel.durT / 2)) radioSay("run.half", true);
+    if (world.heist && me.t === world.heist.from && me.alive) { toast("SEARCHLIGHT · stay out of the red light"); sfx.alarm(); vibrate([20, 40, 20]); RAD.lastMid = -1e9; radioSay("run.lightOn", true); }
+    if (world.blackout && me.t === world.blackout.from && me.alive) { tone(520, .9, "sawtooth", .07, -440); noiseBurst(.5, .05, 600); vibrate([30, 40, 30]); RAD.lastMid = -1e9; radioSay("run.dark", true); }
+    if (curLevel && curLevel.durT >= TPS * 24 && me.t === Math.floor(curLevel.durT / 2)) radioSay(curLevel.type === "escort" ? "run.escHalf" : "run.half", true);
     if (!curLevel && me.t === TPS * 40) radioSay("run.forty", true);
     if (!curLevel && mode === "daily" && day % 2 === 0 && me.t === TPS * 30) radioSay("run.rival", true);
+    /* v41 race: Kestrel calls it when the lead changes hands (once each way per run) */
+    if (curLevel && curLevel.rival && me.alive && me.t > TPS * 4 && me.t < curLevel.rival.t && me.t % 6 === 0) {
+      const lead = me.score - CR.rivalScore(curLevel.rival, me.t);
+      if (lead > 0 && raceLead !== 1) { if (raceLead === -1) { radioSay("run.passK", true); floaters.push({ x: me.x, y: me.y - 46, t: 0, text: "PASSED KESTREL", color: "#4fe0cf", size: 15 }); } raceLead = 1; }
+      else if (lead < 0 && raceLead !== -1) { if (raceLead === 1) radioSay("run.kPass", true); raceLead = -1; }
+    }
     if (curLevel) levelTick();
-    if (!ghostPassed && !curLevel && me.t > ghost.t && me.alive) { ghostPassed = true; toast(`You outlasted the ghost from ${world.partner[0]}`); sfx.best(); }
+    if (!ghostPassed && !curLevel && me.t > ghost.t && me.alive) { ghostPassed = true; toast(ghost.name ? `You outlasted ${ghost.name}` : `You outlasted the ghost from ${world.partner[0]}`); sfx.best(); }
     if (pbLive && !pbEndToasted && me.t === pbLive.t && me.alive && me.t < CR.MAX_T - 1) { pbEndToasted = true; toast("Your best run ended here. Keep going!", true); sfx.best(); }
     if (!bestToasted && bestBefore > 0 && me.score > bestBefore) { bestToasted = true; toast("New best! Keep going", true); sfx.best(); }
     for (const e of world.events) {
@@ -3285,7 +3764,13 @@ button.lk { cursor: pointer; }
   const ALL_BONUS = 50;
   // ---------- trophies (app-side; reads runs, never changes the rules) ----------
   save.ach = save.ach && typeof save.ach === "object" ? save.ach : {};
-  save.rec = Object.assign({ stars: 0, near: 0, secs: 0, score: 0, mult: 1, golds: 0, gates: 0, novas: 0, ghostWins: 0, bosses: 0, wells: 0, flares: 0 }, save.rec || {});
+  save.rec = Object.assign({ stars: 0, near: 0, secs: 0, score: 0, mult: 1, golds: 0, gates: 0, novas: 0, ghostWins: 0, bosses: 0, wells: 0, flares: 0, escorts: 0 }, isObj(save.rec) ? save.rec : {});
+  if (!Number.isInteger(save.rec.escorts) || save.rec.escorts < 0) save.rec.escorts = 0;
+  if (!Number.isInteger(save.rec.pods) || save.rec.pods < 0) save.rec.pods = 0;
+  if (!Number.isInteger(save.rec.blackouts) || save.rec.blackouts < 0) save.rec.blackouts = 0;
+  if (!Number.isInteger(save.rec.heists) || save.rec.heists < 0) save.rec.heists = 0; /* v42: Heists pulled off */
+  if (!Number.isInteger(save.rec.beacons) || save.rec.beacons < 0) save.rec.beacons = 0; /* v43: beacons lit */
+  if (!Number.isInteger(save.rec.races) || save.rec.races < 0) save.rec.races = 0; /* v41: races won against Kestrel */ /* v40: Blackout Runs finished */ /* v39: escape pods rescued, all time */
   let runNovas = 0, runTrophies = [];
   const best = (k, v) => Math.max(save.rec[k] || 0, v || 0);
   /* live: can unlock mid-run from this run's stats. Others are checked when a run ends. */
@@ -3310,7 +3795,13 @@ button.lk { cursor: pointer; }
     { id: "explorer", icon: "◎", name: "Explorer", desc: "Open the Red Circuit world", coins: 40, goal: LV.WORLDS[1].need, of: () => LV.total(save.levels) },
     { id: "streak3", icon: "3d", name: "Regular", desc: "Play 3 days in a row", coins: 30, goal: 3, of: () => save.streak },
     { id: "fleet", icon: "◆", name: "Fleet", desc: "Own 3 ships", coins: 30, goal: 3, of: () => save.owned.length },
-    { id: "ace", icon: "A", name: "Ace", desc: "Reach pilot rank Ace (Lv 6)", coins: 50, goal: 6, of: () => save.pilot }
+    { id: "ace", icon: "A", name: "Ace", desc: "Reach pilot rank Ace (Lv 6)", coins: 50, goal: 6, of: () => save.pilot },
+    { id: "rival", icon: "VS", name: "Rival Racer", desc: "Beat 3 friends' challenges", coins: 40, goal: 3, of: () => save.chalBeat.length },
+    { id: "escort", icon: "◈", name: "Light Keeper", desc: "Escort a Light Ship to the finish", coins: 30, goal: 1, of: () => save.rec.escorts },
+    { id: "night", icon: "◑", name: "Night Flyer", desc: "Fly a Blackout Run to the finish", coins: 30, goal: 1, of: () => save.rec.blackouts },
+    { id: "outpace", icon: "»", name: "Outpaced", desc: "Win a race against Kestrel", coins: 30, goal: 1, of: () => save.rec.races },
+    { id: "heist", icon: "◇", name: "Shadow Runner", desc: "Pull off a Heist mission", coins: 30, goal: 1, of: () => save.rec.heists },
+    { id: "beacon", icon: "✧", name: "Lighthouse", desc: "Light a beacon with 50 stars", coins: 30, goal: 1, of: () => save.rec.beacons }
   ];
   const trophyCount = () => TROPHIES.filter(t => save.ach[t.id]).length;
   function trophyCheck(r, live) {
@@ -3443,6 +3934,23 @@ button.lk { cursor: pointer; }
   }
 
   // ---------- game over ----------
+  /* v36 (fun plan 3): "so close" bar and one next-goal line. Always about what's next, never about what went wrong */
+  function closeHTML(text, frac) {
+    return `<div class="close"><b>${text}</b><div class="bar"><i style="width:${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%"></i></div></div>`;
+  }
+  function nextGoalHTML(r) {
+    const opts = [];
+    if (r) for (const m of DAILY) if (!missionDone(m.key)) opts.push({ f: Math.min(.99, m.of(r) / m.goal), text: `${m.text} · +${m.reward} ◉` });
+    const need = LV.xpNeed(save.pilot);
+    opts.push({ f: Math.min(.99, save.xp / need), text: `Pilot Lv ${save.pilot + 1}: ${(need - save.xp).toLocaleString()} XP to go` });
+    const n = SKINS.find(s => !save.owned.includes(s.id));
+    if (n) {
+      const lv = SHIP_RANK[n.id] || 1, coinF = Math.min(1, save.coins / n.cost), rankF = Math.min(1, save.pilot / lv);
+      opts.push({ f: Math.min(coinF, rankF), text: coinF >= 1 && rankF >= 1 ? `${n.name} is ready to unlock in the Hangar` : rankF < 1 ? `${n.name}: reach Pilot Lv ${lv}` : `${n.name}: ◉ ${(n.cost - save.coins).toLocaleString()} to go` });
+    }
+    const g = opts.sort((a, b) => b.f - a.f)[0];
+    return `<div class="nextgoal"><div class="ng"><small>Next goal</small><span>${g.text}</span></div><div class="bar"><i style="width:${Math.round(g.f * 100)}%"></i></div></div>`;
+  }
   function backToOver() { state = "over"; $("#over").hidden = false; }
   function gameOver() {
     if (state === "over") return; /* v31 (QA 6): never pay out a run twice */
@@ -3460,28 +3968,42 @@ button.lk { cursor: pointer; }
     bumpStreak();
     const xpRun = LV.runXP(me, 0), upsRun = LV.addXP(save, xpRun);
     let upCoinsRun = 0; upsRun.forEach(lv => { upCoinsRun += LV.levelUpCoins(lv); }); save.coins += upCoinsRun;
-    if (upsRun.length) setTimeout(() => { sfx.best(); toast(`Rank up! Pilot Lv ${save.pilot}`, true); }, 700);
+    if (upsRun.length) setTimeout(() => sfx.best(), 700); /* v36: the results screen already shows the rank-up line, so no toast over it */
     const diff = me.score - ghost.score, p = world.partner, secs = me.t / TPS;
+    /* v37 (fun plan 1): a challenge race. Beating a friend's run counts once per link toward Rival Racer */
+    const isChal = mode === "challenge" && chal;
+    if (isChal && diff > 0 && !me.quit && !save.chalBeat.includes(chal.key)) { save.chalBeat.push(chal.key); if (save.chalBeat.length > 60) save.chalBeat.shift(); }
+    lastRun = { day: isChal ? chal.day : day, cfg: Object.assign({}, me.cfg), inputs: inputs.slice(), t: me.t, score: me.score };
     const pbDiff = pbLive ? me.score - pbLive.score : null;
     const pbLine = pbLive ? `<div class="next" style="color:${pbDiff > 0 ? "var(--tide)" : PB_COL}">${pbDiff > 0 ? `You beat your best-run ghost by ${pbDiff.toLocaleString()}. This run is your new ghost.` : `${(-pbDiff).toLocaleString()} short of your best-run ghost`}</div>` : newBest && mode === "daily" ? `<div class="next" style="color:${PB_COL}">This run is now your best-run ghost. Race it next time.</div>` : "";
     trophyEnd(me, mode === "daily" && !me.quit && diff >= 0);
     persist(); paintChips();
     const missionBonus = DAILY.filter(m => runMissions.has(m.key)).reduce((a, m) => a + m.reward, 0) + (runMissions.has("all") ? ALL_BONUS : 0);
-    const text = `Meteor Pilot ${mode === "daily" ? "No. " + day : "(random)"} ☄️\n${me.score.toLocaleString()} pts · ${CR.fmtTime(secs)} · ★${me.stars} · ×${me.maxMult}\n${diff >= 0 ? "Beat" : "Lost to"} the ghost from ${p[0]} by ${Math.abs(diff).toLocaleString()}`;
+    const rival = isChal ? chal.name : `the ghost from ${p[0]}`;
+    const text = `Meteor Pilot ${mode === "daily" ? "No. " + day : isChal ? "challenge, Day " + chal.day : "(random)"} ☄️\n${me.score.toLocaleString()} pts · ${CR.fmtTime(secs)} · ★${me.stars} · ×${me.maxMult}\n${diff >= 0 ? "Beat" : "Lost to"} ${rival} by ${Math.abs(diff).toLocaleString()}`;
+    const canShare = mode === "daily" || isChal;
+    const verdict = isChal ? (diff > 0 ? `You beat ${esc(chal.name)} by ${diff.toLocaleString()}!` : diff === 0 ? `Dead heat with ${esc(chal.name)}!` : `${esc(chal.name)} wins by ${(-diff).toLocaleString()}. Rematch?`)
+      : diff >= 0 ? `You beat the ghost from ${p[0]} by ${diff.toLocaleString()}` : `${(-diff).toLocaleString()} short of the ghost from ${p[0]}`;
     const o = $("#over"), lit = me.bossesDown > 0;
+    const shareBox = canShare ? `<div class="chalbox"><input class="tagin" id="chal-name" maxlength="12" autocomplete="off" aria-label="Your name for the challenge (optional)" placeholder="Your name" value="${esc(save.chalName)}"><button class="btn alt" id="chal-send">${isChal ? "Send yours back" : "Challenge a friend"}</button></div><div class="chalmsg" id="chal-msg" hidden></div>` : "";
+    const stamp = newBest && bestBefore > 0, soClose = mode === "daily" && !newBest && !me.quit && bestBefore > 0 && me.score >= bestBefore * 0.85;
     o.classList.toggle("lit", lit);
     o.innerHTML = `<div class="eyebrow ${newBest ? "hot" : ""}">${newBest ? "New best today" : mode === "daily" ? `Best today ${(save.best[day] || 0).toLocaleString()}` : "Run over"}</div>
       <div class="big">${me.score.toLocaleString()}</div>
-      <div class="verdict ${diff >= 0 ? "win" : "lose"}">${diff >= 0 ? `You beat the ghost from ${p[0]} by ${diff.toLocaleString()}` : `${(-diff).toLocaleString()} short of the ghost from ${p[0]}`}</div>
+      ${stamp ? `<div class="stamp${calm() ? " calm" : ""}">NEW BEST</div>` : ""}
+      ${soClose ? closeHTML(me.score === bestBefore ? "You tied your best!" : `Only ${(bestBefore - me.score).toLocaleString()} from your best!`, me.score / bestBefore) : ""}
+      <div class="verdict ${diff >= 0 ? "win" : "lose"}">${verdict}</div>
       ${pbLine}
       ${lit ? `<div class="litline">Light returned to the sector</div>` : ""}
-      ${debriefHTML(newBest ? "best.1" : lit ? "boss.down" : LOSE_LINES[save.runs % LOSE_LINES.length])}
+      ${debriefHTML(isChal ? (diff > 0 ? "chal.win" : "chal.lose") : newBest ? "best.1" : lit ? "boss.down" : LOSE_LINES[save.runs % LOSE_LINES.length])}
       <div class="stats"><div><b>${CR.fmtTime(secs)}</b><span>time</span></div><div><b>${me.stars}</b><span>stars</span></div><div><b>×${me.maxMult}</b><span>combo</span></div><div><b>${me.near}</b><span>close calls</span></div></div>
       <div class="earn">+${earned + missionBonus} ◉${missionBonus ? ` (${missionBonus} from missions)` : ""}</div>
       ${upsRun.length ? `<div class="lvup">Rank up! Pilot Lv ${save.pilot} · ${LV.rankName(save.pilot)} · +${upCoinsRun} ◉</div>` : ""}
       ${trophyLineHTML()}
       ${rankHTML(xpRun)}
-      <div class="duo"><button class="btn pulse" id="again">Play again</button><button class="btn lvl" id="go-levels">Levels</button></div>
+      ${nextGoalHTML(me)}
+      <div class="duo"><button class="btn pulse" id="again">${isChal ? "Rematch" : "Play again"}</button><button class="btn lvl" id="go-levels">Levels</button></div>
+      ${shareBox}
       ${missionHTML(me)}
       ${nextUnlockHTML()}
       <div class="btns"><button class="btn alt" id="ships">Hangar</button><button class="btn alt" id="copy">Copy score</button><button class="btn alt" id="swap">${mode === "daily" ? "Random course" : "Daily course"}</button><button class="btn alt" id="over-tro">🏆 Trophies</button></div>
@@ -3493,13 +4015,217 @@ button.lk { cursor: pointer; }
     $("#go-levels").onclick = () => openLevels();
     $("#ships").onclick = () => openHangar();
     $("#swap").onclick = () => { setup(mode !== "daily"); showStart(); };
+    const cs = $("#chal-send"); if (cs) cs.onclick = sendChallenge;
+    const cn = $("#chal-name"); if (cn) cn.oninput = () => { save.chalName = cleanName(cn.value); persist(); };
     $("#copy").onclick = () => {
       const ok = () => { $("#copy").textContent = "Copied"; };
       const fb = () => { const s = $("#share"); s.style.position = "static"; const r = document.createRange(); r.selectNodeContents(s); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $("#copy").textContent = "Selected, copy it"; };
       try { navigator.clipboard.writeText(text).then(ok, fb); } catch (e) { fb(); }
     };
     $("#again").focus({ preventScroll: true });
+    if (stamp) setTimeout(() => sfx.best(), 250);
   }
+
+  // ---------- CHALLENGE LINKS (v37, fun plan 1; app-side, replays through window.CR.step, never changes the rules) ----------
+  /* A link holds the course day, the ship and upgrades, the recorded inputs and the score, plus an optional name.
+     Inputs become a per-tick target path, delta + varint encoded, deflated when the browser can, then base64url.
+     Over 8,000 characters, only every 2nd (4th, ...) tick is kept and the rest is filled in by straight lines;
+     the link then carries the score of that smoothed run, so the ghost always matches what the link says. */
+  const CH_FMT = 1, CH_MAX = 8000, CH_BASE = /github\.io$/.test(location.hostname) || location.hostname === "localhost" ? location.origin + location.pathname : "https://jimsky90.github.io/meteor-pilot/";
+  save.chalName = typeof save.chalName === "string" ? save.chalName.slice(0, 12) : "";
+  save.chalBeat = Array.isArray(save.chalBeat) ? save.chalBeat.filter(k => typeof k === "string").slice(-60) : [];
+  let chal = null, lastRun = null;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const cleanName = s => String(s || "").replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]/g, "").replace(/\s+/g, " ").trim().slice(0, 12);
+  const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  function b64e(u8) {
+    let s = "";
+    for (let i = 0; i < u8.length; i += 3) {
+      const n = (u8[i] << 16) | ((u8[i + 1] || 0) << 8) | (u8[i + 2] || 0), k = Math.min(3, u8.length - i);
+      s += B64[n >> 18 & 63] + B64[n >> 12 & 63] + (k > 1 ? B64[n >> 6 & 63] : "") + (k > 2 ? B64[n & 63] : "");
+    }
+    return s;
+  }
+  function b64d(s) {
+    if (!/^[A-Za-z0-9_-]*$/.test(s) || s.length % 4 === 1) return null;
+    const out = new Uint8Array(Math.floor(s.length * 3 / 4)); let o = 0;
+    for (let i = 0; i < s.length; i += 4) {
+      const c = [0, 1, 2, 3].map(k => i + k < s.length ? B64.indexOf(s[i + k]) : 0), n = (c[0] << 18) | (c[1] << 12) | (c[2] << 6) | c[3], k = Math.min(4, s.length - i);
+      out[o++] = n >> 16 & 255; if (k > 2) out[o++] = n >> 8 & 255; if (k > 3) out[o++] = n & 255;
+    }
+    return out.subarray(0, o);
+  }
+  function writer() {
+    const a = [];
+    return { a, u(v) { v = Math.max(0, Math.floor(v)); while (v >= 128) { a.push((v % 128) | 128); v = Math.floor(v / 128); } a.push(v); }, s(v) { this.u(v >= 0 ? v * 2 : -v * 2 - 1); }, b(bs) { for (const x of bs) a.push(x); } };
+  }
+  function reader(u8) {
+    let i = 0;
+    return {
+      u() { let v = 0, m = 1; for (let n = 0; n < 6; n++) { if (i >= u8.length) throw new Error("short"); const b = u8[i++]; v += (b & 127) * m; if (b < 128) return v; m *= 128; } throw new Error("varint"); },
+      s() { const v = this.u(); return v % 2 ? -(v + 1) / 2 : v / 2; },
+      bytes(n) { if (i + n > u8.length) throw new Error("short"); const o = u8.slice(i, i + n); i += n; return o; },
+      done: () => i === u8.length
+    };
+  }
+  async function pipe(u8, stream, cap) {
+    const s = new Blob([u8]).stream().pipeThrough(stream), rd = s.getReader(), parts = []; let len = 0;
+    for (;;) { const { done, value } = await rd.read(); if (done) break; len += value.length; if (len > cap) { try { rd.cancel(); } catch (e) {} throw new Error("too big"); } parts.push(value); }
+    const out = new Uint8Array(len); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; } return out;
+  }
+  const canZip = () => typeof CompressionStream === "function" && typeof DecompressionStream === "function";
+  /* inputs (changes) -> per-tick targets, exactly as CR.replay reads them */
+  function inputSeries(inp, T) {
+    const X = new Int32Array(T), Y = new Int32Array(T);
+    let tx = W / 2, ty = SHIP_Y, i = 0, wait = inp.length ? inp[0][0] : Infinity;
+    for (let k = 0; k < T; k++) {
+      while (i < inp.length && wait <= 0) { tx = inp[i][1]; ty = inp[i][2]; i++; wait = i < inp.length ? inp[i][0] : Infinity; }
+      X[k] = tx; Y[k] = ty; wait--;
+    }
+    return { X, Y };
+  }
+  function seriesInputs(X, Y) {
+    const out = []; let lx = W / 2, ly = SHIP_Y, lk = 0;
+    for (let k = 0; k < X.length; k++) if (X[k] !== lx || Y[k] !== ly) { out.push([k - lk, X[k], Y[k]]); lx = X[k]; ly = Y[k]; lk = k; }
+    return out;
+  }
+  /* keep every s-th tick; on the way back, fill the gaps with straight lines */
+  function thinSamples(X, Y, s) { const n = Math.floor((X.length - 1) / s) + 1, xs = new Int32Array(n), ys = new Int32Array(n); for (let j = 0; j < n; j++) { xs[j] = X[j * s]; ys[j] = Y[j * s]; } return { xs, ys }; }
+  function expand(xs, ys, s, T) {
+    const X = new Int32Array(T), Y = new Int32Array(T);
+    for (let k = 0; k < T; k++) { const j = Math.floor(k / s), f = (k % s) / s, j2 = Math.min(xs.length - 1, j + 1); X[k] = Math.round(xs[j] + (xs[j2] - xs[j]) * f); Y[k] = Math.round(ys[j] + (ys[j2] - ys[j]) * f); }
+    return { X, Y };
+  }
+  /** Step a recorded run through the course. Stops at T ticks (a run ended early stops where it stopped). */
+  function chalRun(w, cfg, inp, T) {
+    const r = CR.newRunner(cfg), xs = [r.x], ys = [r.y], sc = [0];
+    let tx = W / 2, ty = SHIP_Y, i = 0, wait = inp.length ? inp[0][0] : Infinity;
+    while (r.alive && r.t < T) {
+      while (i < inp.length && wait <= 0) { tx = inp[i][1]; ty = inp[i][2]; i++; wait = i < inp.length ? inp[i][0] : Infinity; }
+      CR.step(w, r, tx, cfg.speed, ty); wait--;
+      xs.push(r.x); ys.push(r.y); sc.push(r.score);
+    }
+    return { path: xs, ys, scores: sc, t: r.t, score: r.score };
+  }
+  function upFromCfg(cfg) {
+    return { magnet: Math.round((cfg.magnetT - CR.MAGNET_T) / 90), nova: Math.round((cfg.novaR - CR.NOVA_R) / 25), value: Math.round((cfg.starMul - 1) * 10), guard: cfg.keep | 0 };
+  }
+  function payload(run, name, s, samples, score, T) {
+    const w = writer(), ship = Math.max(0, SKINS.findIndex(k => k.id === run.cfg.ship)), up = upFromCfg(run.cfg), nb = new TextEncoder().encode(name);
+    w.u(PB_VER); w.u(run.day); w.u(ship); for (const k of CR_UP) w.u(up[k]); w.u(score); w.u(T); w.u(s); w.u(nb.length); w.b(nb);
+    const ch = seriesInputs(samples.xs, samples.ys);
+    w.u(ch.length); let px = W / 2, py = SHIP_Y;
+    for (const [dt, x, y] of ch) { w.u(dt); w.s(x - px); w.s(y - py); px = x; py = y; }
+    return new Uint8Array(w.a);
+  }
+  const CR_UP = ["magnet", "guard", "value", "nova"];
+  async function pack(raw) {
+    if (canZip()) { try { const z = await pipe(raw, new CompressionStream("deflate-raw"), 1e6); return b64e(Uint8Array.of(CH_FMT, 1, ...z)); } catch (e) {} }
+    return b64e(Uint8Array.of(CH_FMT, 0, ...raw));
+  }
+  /** Encode a finished run. Returns { code, score, thin }. */
+  async function encodeRun(run, name) {
+    const T = run.t, { X, Y } = inputSeries(run.inputs, T), w = CR.makeWorld("comet-" + run.day);
+    for (let s = 1; s <= 32; s *= 2) {
+      const samples = thinSamples(X, Y, s);
+      let score = run.score;
+      if (s > 1) { const e = expand(samples.xs, samples.ys, s, T); score = chalRun(w, run.cfg, seriesInputs(e.X, e.Y), T).score; }
+      const code = await pack(payload(run, name, s, samples, score, T));
+      if (code.length <= CH_MAX || s === 32) return { code, score, thin: s };
+    }
+  }
+  /** Decode and verify a link. Throws on anything broken; returns { old: true } for an older course version. */
+  async function decodeRun(code) {
+    if (typeof code !== "string" || code.length > 12000) throw new Error("size");
+    const all = b64d(code); if (!all || all.length < 3 || all[0] !== CH_FMT || all[1] > 1) throw new Error("head");
+    let raw = all.subarray(2);
+    if (all[1] === 1) { if (!canZip()) throw new Error("nozip"); raw = await pipe(raw, new DecompressionStream("deflate-raw"), 300000); }
+    const r = reader(raw), ver = r.u();
+    if (ver !== PB_VER) return { old: true };
+    const cday = r.u(), ship = r.u(), up = {};
+    for (const k of CR_UP) up[k] = r.u();
+    const score = r.u(), T = r.u(), s = r.u(), nl = r.u();
+    if (cday < 1 || cday > day + 1 || ship >= SKINS.length || CR_UP.some(k => up[k] > 5) || T < 1 || T > CR.MAX_T || ![1, 2, 4, 8, 16, 32].includes(s) || nl > 48 || score > 1e8) throw new Error("range");
+    const name = cleanName(new TextDecoder("utf-8", { fatal: true }).decode(r.bytes(nl))) || "A pilot";
+    const nS = Math.floor((T - 1) / s) + 1, n = r.u();
+    if (n > nS) throw new Error("count");
+    const xs = new Int32Array(nS), ys = new Int32Array(nS);
+    let px = W / 2, py = SHIP_Y, j = 0, prev = 0;
+    for (let q = 0; q < n; q++) {
+      const dt = r.u(), x = px + r.s(), y = py + r.s(), at = prev + dt;
+      if ((q > 0 && dt < 1) || at >= nS || Math.abs(x) > 5000 || Math.abs(y) > 5000) throw new Error("input");
+      for (; j < at; j++) { xs[j] = px; ys[j] = py; }
+      px = x; py = y; prev = at;
+    }
+    for (; j < nS; j++) { xs[j] = px; ys[j] = py; }
+    if (!r.done()) throw new Error("tail");
+    const { X, Y } = s === 1 ? { X: xs, Y: ys } : expand(xs, ys, s, T);
+    const cfg = CR.loadoutCfg(SKINS[ship].id, up), w = CR.makeWorld("comet-" + cday);
+    const g = chalRun(w, cfg, seriesInputs(X, Y), T);
+    if (g.score !== score || g.t !== T) throw new Error("replay");
+    return { day: cday, name, score, cfg, world: w, ghost: Object.assign(g, { name, model: SHIP3D.model(cfg.ship), body: SKINS[ship].body }), key: cday + ":" + score + ":" + T + ":" + name };
+  }
+  async function sendChallenge() {
+    const btn = $("#chal-send"), msg = $("#chal-msg"), inp = $("#chal-name");
+    if (!lastRun || !btn) return;
+    audio(); sfx.tap();
+    const name = cleanName(inp ? inp.value : save.chalName); save.chalName = name; persist();
+    btn.disabled = true; btn.textContent = "Packing…";
+    let res;
+    try { res = await encodeRun(lastRun, name || "A pilot"); } catch (e) { res = null; }
+    btn.disabled = false; btn.textContent = mode === "challenge" ? "Send yours back" : "Challenge a friend";
+    if (!res) { msg.hidden = false; msg.textContent = "Couldn't make a link for this run."; return; }
+    const url = CH_BASE + "#c=" + res.code, who = name || "A pilot";
+    const text = `${who} scored ${res.score.toLocaleString()} on Meteor Pilot, Day ${lastRun.day}. Can you beat my run?`;
+    const showLink = note => { msg.hidden = false; msg.innerHTML = `${note}<input readonly value="${esc(url)}" aria-label="Challenge link">`; const f = msg.querySelector("input"); f.onfocus = () => f.select(); };
+    const thinNote = res.thin > 1 ? ` (a long run, so the link carries a smoothed copy scoring ${res.score.toLocaleString()})` : "";
+    try {
+      if (navigator.share) { await navigator.share({ title: "Meteor Pilot challenge", text, url }); msg.hidden = false; msg.textContent = "Challenge sent!" + thinNote; return; }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+    try { await navigator.clipboard.writeText(text + "\n" + url); msg.hidden = false; msg.textContent = "Link copied. Paste it to a friend!" + thinNote; }
+    catch (e) { showLink("Copy this link and send it to a friend:" + thinNote); }
+  }
+  /* Opening a link: a card first, then the race. A broken link only shows a message. */
+  function chalCard(c, err) {
+    state = "menu"; hideOverlays();
+    const o = $("#chal");
+    if (err) {
+      o.innerHTML = `<div class="eyebrow">Challenge</div><div class="chalcard"><div class="quick">${err}</div><button class="btn" id="ch-ok">OK</button></div>`;
+      o.hidden = false; $("#ch-ok").onclick = () => { sfx.tap(); showStart(); }; $("#ch-ok").focus({ preventScroll: true }); return;
+    }
+    const s = SKINS.find(k => k.id === c.cfg.ship) || SKINS[0];
+    o.innerHTML = `<div class="eyebrow hot">Challenge · Day ${c.day}${c.day === day ? " (today)" : ""}</div>
+      <h2>Race a <span class="hl">friend</span></h2>
+      <div class="chalcard"><img class="shipimg" alt="" src="${SHIP3D.icon(s.body, s.flame, SHIP3D.model(s.id))}">
+        <div class="quick"><b>${esc(c.name)}</b> scored <b class="g">${c.score.toLocaleString()}</b> on Day ${c.day}. Race their ghost?</div>
+        <button class="btn pulse" id="ch-go">Race their ghost</button><button class="btn alt" id="ch-no">Not now</button></div>
+      <p class="fine">Their ghost flies their exact run on the same course. You fly your own ship.</p>`;
+    o.hidden = false;
+    $("#ch-go").onclick = () => { audio(); setupChallenge(c); playMain(); };
+    $("#ch-no").onclick = () => { sfx.tap(); chal = null; setup(true); showStart(); };
+    $("#ch-go").focus({ preventScroll: true });
+  }
+  function setupChallenge(c) {
+    chal = c; mode = "challenge"; curLevel = null;
+    world = CR.makeWorld("comet-" + c.day);
+    theme = TH.forDay(c.day); themeBase = theme.n - 1;
+    ghost = c.ghost; rocks.clear();
+  }
+  async function openChallengeFromHash() {
+    let h = ""; try { h = location.hash || ""; } catch (e) {}
+    const m = h.match(/^#c=([^&]*)/); if (!m) return;
+    const free = () => state === "menu" || state === "over";
+    if (!free()) return; /* mid-run: leave the link alone */
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    let c = null, err = null;
+    try { c = await decodeRun(m[1]); if (c.old) { c = null; err = "This challenge was made on an older version of the course, so it can't be replayed. Ask your friend for a new link!"; } }
+    catch (e) { err = "This challenge link is broken."; }
+    if (!free()) return;
+    chalCard(c, err);
+  }
+  addEventListener("hashchange", openChallengeFromHash);
+  window.__MP_CHAL = { encodeRun, decodeRun, chalRun, inputSeries, seriesInputs }; /* for automated tests */
+  window.__MP_STATE = () => ({ state, mode, t: me ? me.t : 0, x: me ? me.x : 0, y: me ? me.y : 0, pods: me ? me.pods : 0, podLost: me ? me.podLost : 0, frags: me ? me.frags : 0, spotted: me ? me.spotted : 0, stars: me ? me.stars : 0, motes: me ? me.motes : 0, beaconLit: me ? me.beaconLit : null, lives: me ? me.lives : 0, alive: !!(me && me.alive), level: curLevel ? curLevel.n : 0, seed: curLevel ? curLevel.seed : "" }); /* v39: read-only, for automated tests */
 
   // ---------- drawing ----------
   const DUST = Array.from({ length: 90 }, (_, i) => ({ x: Math.random() * W, y: Math.random() * H, z: 0.3 + (i % 3) * 0.35 }));
@@ -3523,7 +4249,7 @@ button.lk { cursor: pointer; }
   function drawIntro(t) {
     const al = Math.max(0, Math.min(1, t / 14, (150 - t) / 35));
     if (al <= 0) return;
-    const label = curLevel ? `LEVEL ${curLevel.n}${curLevel.finale ? " · FINALE" : ""}` : mode === "daily" ? `DAILY No. ${day}` : "RANDOM COURSE";
+    const label = curLevel ? `LEVEL ${curLevel.n}${curLevel.finale ? " · FINALE" : ""}` : mode === "daily" ? `DAILY No. ${day}` : mode === "challenge" && chal ? `CHALLENGE · DAY ${chal.day}` : "RANDOM COURSE";
     const y = H * 0.42, sweep = Math.min(1, t / 40);
     ctx.save(); ctx.globalAlpha = al;
     const band = ctx.createLinearGradient(0, y - 60, 0, y + 40);
@@ -3730,6 +4456,11 @@ button.lk { cursor: pointer; }
     if (!veilGrad) { veilGrad = ctx.createLinearGradient(0, 0, 0, H * 0.7); veilGrad.addColorStop(0, "rgba(79,224,207,.16)"); veilGrad.addColorStop(.5, "rgba(238,240,255,.06)"); veilGrad.addColorStop(1, "rgba(79,224,207,0)"); }
     ctx.save(); ctx.globalAlpha = Math.min(1, p / 40); ctx.fillStyle = veilGrad; ctx.fillRect(0, 0, W, H * 0.7); ctx.restore();
   }
+  /* v36 (fun plan 2): Fever warms the sky. One cached gradient, drawn behind the hazards; Calm effects turns it off */
+  function feverWarm() {
+    if (!me || !(me.fever > 0) || calm() || !(state === "play" || state === "paused" || state === "countdown")) return 0;
+    return Math.min(1, (me.feverMax - me.fever) / 20, me.fever / 30);
+  }
   function drawLightWash(t) {
     if (!lightBack || t < lightBack.t) return;
     const p = t - lightBack.t; if (p >= 70) return;
@@ -3774,6 +4505,242 @@ button.lk { cursor: pointer; }
     if (bossFlash > 0) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(200,255,250,${bossFlash / 12})`; ctx.beginPath(); ctx.ellipse(0, 3, 70, 24, 0, 0, 6.283); ctx.fill(); }
     ctx.restore();
     if (hurt && kill == null && state === "play" && Math.random() < 0.35) particles.push({ x: p.x + (Math.random() - .5) * 90, y: p.y + 8, vx: (Math.random() - .5) * .5, vy: -.6 - Math.random() * .6, life: 22 + Math.random() * 16, color: Math.random() < .4 ? "#ff7a3d" : "#5a628f", s: 3 + Math.random() * 3 });
+  }
+  /* ---------- LIGHT SHIP (v38 escort; display only, its path and hit points live in window.CR) ----------
+     A small teal lantern barge with a white lamp dome. Its three hull lights are its hit points. The dashed ring is the
+     link: inside it your ship wears a teal shield bubble and blocks rocks. When it turns back it rises and fades, safe. */
+  let escFlash = 0, escLostAt = 0, escArt = null;
+  /* Drawn once into small canvases (glow, hull, two link rings), so the Light Ship costs a few drawImage calls per frame */
+  function escSprites() {
+    const mk = (w, h, paint) => { const c = document.createElement("canvas"); c.width = w * 3; c.height = h * 3; const g = c.getContext("2d"); g.scale(3, 3); paint(g); return c; };
+    const ring = (a, lw) => mk(176, 176, g => { g.strokeStyle = `rgba(79,224,207,${a})`; g.lineWidth = lw; g.setLineDash([6, 7]); g.beginPath(); g.arc(88, 88, CR.ESC_LINK, 0, 6.283); g.stroke(); });
+    return {
+      glow: mk(88, 88, g => { const r = g.createRadialGradient(44, 44, 2, 44, 44, 44); r.addColorStop(0, "rgba(238,240,255,.5)"); r.addColorStop(.4, "rgba(79,224,207,.22)"); r.addColorStop(1, "rgba(79,224,207,0)"); g.fillStyle = r; g.fillRect(0, 0, 88, 88); }),
+      ringOff: ring(.34, 1.5), ringOn: ring(.75, 2),
+      hull: mk(56, 40, g => {
+        g.translate(28, 16);
+        const pg = g.createLinearGradient(0, 9, 0, 22); pg.addColorStop(0, "#eef0ff"); pg.addColorStop(.4, "rgba(79,224,207,.8)"); pg.addColorStop(1, "rgba(79,224,207,0)");
+        g.fillStyle = pg; g.beginPath(); g.moveTo(-5, 9); g.quadraticCurveTo(0, 16, 0, 22); g.quadraticCurveTo(0, 16, 5, 9); g.fill();
+        g.fillStyle = "#173740"; g.strokeStyle = "#4fe0cf"; g.lineWidth = 1.6;
+        for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(sd * 15, 2); g.lineTo(sd * 25, 9); g.lineTo(sd * 13, 9); g.closePath(); g.fill(); g.stroke(); }
+        g.beginPath(); g.ellipse(0, 4, 19, 7.5, 0, 0, 6.283); g.fill(); g.stroke();
+        const lg = g.createRadialGradient(-2, -5, 1, 0, -1, 10); lg.addColorStop(0, "#ffffff"); lg.addColorStop(.5, "#c9fff6"); lg.addColorStop(1, "#4fe0cf");
+        g.fillStyle = lg; g.beginPath(); g.arc(0, -1, 8.5, Math.PI, 0); g.closePath(); g.fill();
+        g.strokeStyle = "rgba(7,10,26,.6)"; g.lineWidth = 1; g.stroke();
+      })
+    };
+  }
+  function drawEscort(t) {
+    if (!world.escort || !me || t > world.escort.until) return;
+    const e = CR.escortAt(world, t); let x = e.x, y = e.y, al = 1;
+    if (me.escLost) { const k = Math.min(1, (performance.now() - escLostAt) / 1000); y -= k * k * 170; al = 1 - k; if (al <= 0.01) return; }
+    if (!escArt) escArt = escSprites();
+    const A = escArt, hp = Math.max(0, me.escHp == null ? world.escort.hp : me.escHp), link = me.alive && Math.hypot(me.x - x, me.y - y) < CR.ESC_LINK;
+    ctx.save(); ctx.globalAlpha = al;
+    ctx.save(); ctx.translate(x, y); if (!calm()) ctx.rotate(-t * 0.006); ctx.drawImage(link ? A.ringOn : A.ringOff, -88, -88, 176, 176); ctx.restore();
+    if (link) { ctx.strokeStyle = "rgba(79,224,207,.55)"; ctx.lineWidth = 2; ctx.fillStyle = "rgba(79,224,207,.1)"; ctx.beginPath(); ctx.arc(me.x, me.y, 23, 0, 6.283); ctx.fill(); ctx.stroke(); }
+    ctx.drawImage(A.glow, x - 44, y - 44, 88, 88);
+    ctx.translate(x, y); if (!calm()) ctx.rotate(Math.sin(t * 0.03) * 0.06);
+    ctx.drawImage(A.hull, -28, -16, 56, 40);
+    for (let k = 0; k < 3; k++) {
+      const on = k < hp, lx = -9 + k * 9;
+      if (on) { ctx.fillStyle = "rgba(238,240,255,.25)"; ctx.beginPath(); ctx.arc(lx, 5, 4.4, 0, 6.283); ctx.fill(); }
+      ctx.fillStyle = on ? "#eef0ff" : "rgba(141,147,191,.35)"; ctx.beginPath(); ctx.arc(lx, 5, 2.2, 0, 6.283); ctx.fill();
+    }
+    if (escFlash > 0) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(255,170,110,${escFlash / 30})`; ctx.beginPath(); ctx.ellipse(0, 2, 24, 13, 0, 0, 6.283); ctx.fill(); }
+    ctx.restore();
+  }
+  /* ---------- ESCAPE PODS (v39 rescue; display only, their paths and catches live in window.CR) ----------
+     A small white capsule with a dark window and a blinking blue beacon. Up high it wears a shield bubble (safe).
+     A dotted line marks where it will drift; caught pods shrink into your ship, bumped ones drift off and fade. */
+  let podFx = new Map(), podArt = null;
+  function podSprite() {
+    const c = document.createElement("canvas"); c.width = c.height = 96; const g = c.getContext("2d"); g.scale(3, 3); g.translate(16, 16);
+    const gl = g.createRadialGradient(0, 0, 2, 0, 0, 16); gl.addColorStop(0, "rgba(191,230,255,.45)"); gl.addColorStop(1, "rgba(191,230,255,0)");
+    g.fillStyle = gl; g.fillRect(-16, -16, 32, 32);
+    const bg = g.createLinearGradient(-8, -10, 8, 10); bg.addColorStop(0, "#ffffff"); bg.addColorStop(.55, "#bfe6ff"); bg.addColorStop(1, "#8d93bf");
+    g.fillStyle = bg; g.strokeStyle = "#070a1a"; g.lineWidth = 1.6;
+    g.beginPath(); g.ellipse(0, 1, 8.5, 11, 0, 0, 6.283); g.fill(); g.stroke();
+    g.fillStyle = "#070a1a"; g.beginPath(); g.arc(0, -1, 3.8, 0, 6.283); g.fill();
+    g.fillStyle = "#bfe6ff"; g.beginPath(); g.arc(-1.2, -2.2, 1.3, 0, 6.283); g.fill();
+    g.strokeStyle = "#8d93bf"; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-7, 6); g.lineTo(7, 6); g.stroke();
+    return c;
+  }
+  function drawRescue(t) {
+    if (!world.rescue || !me) return;
+    if (!podArt) podArt = podSprite();
+    const blink = calm() || Math.floor(t / 14) % 2 === 0;
+    for (const p of world.rescue.pods) {
+      if (t < p.t - 90) continue;
+      const fx = podFx.get(p.id);
+      if (fx) {
+        const d = t - fx.at;
+        ctx.save();
+        if (fx.lost) {
+          if (d > 50) { ctx.restore(); continue; }
+          const sd = fx.x < W / 2 ? -1 : 1;
+          ctx.globalAlpha = 1 - d / 50; ctx.translate(fx.x + sd * d * 1.4, fx.y - d * 1.2); if (!calm()) ctx.rotate(sd * d * 0.04);
+          ctx.drawImage(podArt, -16, -16, 32, 32);
+        } else {
+          if (d > 16) { ctx.restore(); continue; }
+          const q = d / 16;
+          ctx.globalAlpha = 1 - q * 0.6; ctx.translate(fx.x + (me.x - fx.x) * q, fx.y + (me.y - fx.y) * q); ctx.scale(1 - q * 0.6, 1 - q * 0.6);
+          ctx.drawImage(podArt, -16, -16, 32, 32);
+        }
+        ctx.restore(); continue;
+      }
+      if (me.podDone.has(p.id)) continue;
+      if (t < p.t) {
+        /* incoming: a blinking marker on the top edge where the pod will appear */
+        const x = CR.podAt(p, p.t).x, k = 1 - (p.t - t) / 90;
+        ctx.save(); ctx.globalAlpha = (.45 + .55 * k) * (blink ? 1 : .5); ctx.fillStyle = "#bfe6ff"; ctx.textAlign = "center";
+        ctx.font = "700 11px 'Chakra Petch', sans-serif"; ctx.fillText("POD", x, 72);
+        ctx.beginPath(); ctx.moveTo(x - 7, 78); ctx.lineTo(x + 7, 78); ctx.lineTo(x, 87); ctx.closePath(); ctx.fill(); ctx.restore();
+        continue;
+      }
+      const pp = CR.podAt(p, t);
+      if (pp.y - 16 > H) continue;
+      /* its path: a dashed line along where it will drift (dashes, so it never reads as background dust) */
+      ctx.save(); ctx.strokeStyle = "rgba(191,230,255,.55)"; ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.setLineDash([3, 7]); ctx.lineDashOffset = calm() ? 0 : -t * 0.8; ctx.beginPath(); ctx.moveTo(pp.x, pp.y + 16);
+      for (let k = 10; k <= 160; k += lowGfx() ? 20 : 10) { const q = CR.podAt(p, t + k); ctx.lineTo(q.x, q.y + 16); if (q.y > H) break; }
+      ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.translate(pp.x, pp.y);
+      if (pp.y < CR.POD_SAFE_Y) { ctx.strokeStyle = "rgba(191,230,255,.7)"; ctx.lineWidth = 1.5; ctx.fillStyle = "rgba(191,230,255,.1)"; ctx.beginPath(); ctx.arc(0, 0, 22, 0, 6.283); ctx.fill(); ctx.stroke(); }
+      else if (!calm()) { const q = (t % 50) / 50; ctx.strokeStyle = `rgba(191,230,255,${.6 * (1 - q)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 14 + q * 14, 0, 6.283); ctx.stroke(); }
+      if (!calm()) ctx.rotate(Math.sin(t * 0.05 + p.ph) * 0.18);
+      ctx.scale(1.2, 1.2);
+      ctx.drawImage(podArt, -16, -16, 32, 32);
+      ctx.fillStyle = blink ? "#ffffff" : "#bfe6ff"; ctx.beginPath(); ctx.arc(0, -11.5, 2, 0, 6.283); ctx.fill();
+      if (blink && !lowGfx()) { ctx.fillStyle = "rgba(191,230,255,.35)"; ctx.beginPath(); ctx.arc(0, -11.5, 5, 0, 6.283); ctx.fill(); }
+      ctx.restore();
+    }
+  }
+  /* ---------- HEIST (v42; display only, the searchlight's path, fragments and spotting live in window.CR) ----------
+     A small dark Silence eye under the HUD throws a red cone onto a sweeping spot with a dashed rim. While it warms up the
+     rim blinks thin and faint, so you always see where it will be before it can spot you. Fragments are small teal
+     diamonds like the Mothership's cores, with a dotted path and a marker on the top edge before they enter. */
+  let fragFx = new Map(), spotFx = 0;
+  /* The eye is pre-drawn once. The spot is one plain translucent circle with a dark outline and a red rim (white while
+     flashing after a spot): cheaper on older phones than a gradient image */
+  let eyeArt = null;
+  function eyeSprite() {
+    if (eyeArt) return eyeArt;
+    const c = document.createElement("canvas"), g = c.getContext("2d"); c.width = 100; c.height = 44; g.setTransform(2, 0, 0, 2, 0, 0);
+    g.fillStyle = "rgba(4,5,13,.92)"; g.strokeStyle = "rgba(255,79,98,.8)"; g.lineWidth = 1.4;
+    g.beginPath(); g.ellipse(25, 11, 22, 8, 0, 0, 6.283); g.fill(); g.stroke();
+    g.fillStyle = "#ff4f62"; g.beginPath(); g.ellipse(25, 12, 8, 2.6, 0, 0, 6.283); g.fill();
+    return (eyeArt = c);
+  }
+  function drawSearchlight(t) {
+    const lt = world.heist && CR.lightAt(world, t); if (!lt || !me) return;
+    const R = lt.r, on = lt.on, sx = W / 2 + (lt.x - W / 2) * 0.35, sy = 66;
+    ctx.save();
+    /* the beam: two faint edge lines from the eye to the spot (cheaper than a filled cone, same read) */
+    const dx = lt.x - sx, dy = lt.y - sy, d = Math.hypot(dx, dy) || 1, nx = -dy / d, ny = dx / d;
+    ctx.globalAlpha = on * .5; ctx.strokeStyle = "#ff4f62"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(sx - nx * 5, sy - ny * 5); ctx.lineTo(lt.x - nx * R, lt.y - ny * R); ctx.moveTo(sx + nx * 5, sy + ny * 5); ctx.lineTo(lt.x + nx * R, lt.y + ny * R); ctx.stroke();
+    /* the spot: while it warms up (1 s) it blinks faint, so you see where it will be before it can spot you */
+    ctx.globalAlpha = on >= 1 ? 1 : (.25 + .35 * on) * (calm() || Math.floor(t / 6) % 2 ? 1 : .5);
+    ctx.beginPath(); ctx.arc(lt.x, lt.y, R, 0, 6.283);
+    ctx.fillStyle = "rgba(255,90,110,.16)"; ctx.fill();
+    ctx.strokeStyle = "rgba(20,0,8,.7)"; ctx.lineWidth = 5; ctx.stroke();
+    ctx.strokeStyle = spotFx > 0 ? "#ffffff" : "#ff4f62"; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.globalAlpha = Math.max(.5, on); ctx.drawImage(eyeSprite(), sx - 25, sy - 15, 50, 22);
+    ctx.restore();
+  }
+  let fragArt = null;
+  function drawFrag(x, y, r, t, k) {
+    if (!fragArt) {
+      const q = CR.FRAG_R, c = document.createElement("canvas"); c.width = c.height = q * 8; const g = c.getContext("2d"); g.scale(2, 2); g.translate(q * 2, q * 2);
+      g.fillStyle = "rgba(79,224,207,.22)"; g.beginPath(); g.arc(0, 0, q * 1.6, 0, 6.283); g.fill();
+      const gr = g.createLinearGradient(-q, -q, q, q); gr.addColorStop(0, "#ffffff"); gr.addColorStop(.45, "#4fe0cf"); gr.addColorStop(1, "#1c6f78");
+      g.fillStyle = gr; g.strokeStyle = "rgba(4,20,24,.9)"; g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(0, -q * 1.15); g.lineTo(q * .8, 0); g.lineTo(0, q * 1.15); g.lineTo(-q * .8, 0); g.closePath(); g.fill(); g.stroke();
+      fragArt = c;
+    }
+    const s = r / CR.FRAG_R * CR.FRAG_R * 4;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(t * 0.05 + k); ctx.drawImage(fragArt, -s / 2, -s / 2, s, s); ctx.restore();
+  }
+  function drawFrags(t) {
+    if (!world.heist || !me) return;
+    const blink = calm() || Math.floor(t / 14) % 2 === 0;
+    for (const f of world.heist.frags) {
+      const fx = fragFx.get(f.id);
+      if (fx) {
+        const d = t - fx.at; if (d > 16) continue;
+        const q = d / 16; ctx.save(); ctx.globalAlpha = 1 - q * .6;
+        drawFrag(fx.x + (me.x - fx.x) * q, fx.y + (me.y - fx.y) * q, CR.FRAG_R * (1 - q * .6), t, f.id); ctx.restore(); continue;
+      }
+      if (me.fragDone.has(f.id) || t < f.t - 60) continue;
+      if (t < f.t) {
+        const x = CR.fragAt(f, f.t).x, k = 1 - (f.t - t) / 60;
+        ctx.save(); ctx.globalAlpha = (.45 + .55 * k) * (blink ? 1 : .5); ctx.fillStyle = "#4fe0cf"; ctx.textAlign = "center";
+        ctx.font = "700 11px 'Chakra Petch', sans-serif"; ctx.fillText("CORE", x, 72);
+        ctx.beginPath(); ctx.moveTo(x - 7, 78); ctx.lineTo(x + 7, 78); ctx.lineTo(x, 87); ctx.closePath(); ctx.fill(); ctx.restore();
+        continue;
+      }
+      const fp = CR.fragAt(f, t); if (fp.y - 16 > H) continue;
+      /* its path: small dots along where it will drift, batched into one fill (cheaper than a dashed stroke) */
+      ctx.fillStyle = "rgba(79,224,207,.6)"; ctx.beginPath();
+      for (let k = 8; k <= 150; k += lowGfx() ? 16 : 8) { const q = CR.fragAt(f, t + k - (calm() ? 0 : t % 8)); if (q.y > H) break; ctx.rect(q.x - 1.5, q.y + 12.5, 3, 3); }
+      ctx.fill();
+      drawFrag(fp.x, fp.y, CR.FRAG_R * (1 + Math.sin(t * 0.18 + f.id) * .08), t, f.id);
+    }
+  }
+  /* ---------- LIGHT THE BEACON (v43; display only, the streams, catches and lighting live in window.CR) ----------
+     Light motes are small gold stars on a faint gold thread, one thread per stream, so a stream reads as one ribbon to ride.
+     A thin gold ring around your ship fills toward the goal. When it lights, a pillar of light rises from your ship and the
+     sky stays a little golden for the rest of the run. Sprites and gradients are cached; nothing per-object uses shadowBlur. */
+  let beaconFx = null, moteArt = null, bVeil = null, bPillar = null;
+  function moteSprite() {
+    if (moteArt) return moteArt;
+    const R = CR.MOTE_R, c = document.createElement("canvas"); c.width = c.height = R * 12; const g = c.getContext("2d"); g.scale(2, 2); g.translate(R * 3, R * 3);
+    const gl = g.createRadialGradient(0, 0, 1, 0, 0, R * 2.8); gl.addColorStop(0, "rgba(255,224,138,.6)"); gl.addColorStop(1, "rgba(255,204,77,0)");
+    g.fillStyle = gl; g.fillRect(-R * 3, -R * 3, R * 6, R * 6);
+    g.fillStyle = "#ffe08a"; g.strokeStyle = "rgba(60,36,0,.55)"; g.lineWidth = 1;
+    g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? R * .45 : R; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = "#fff6d6"; g.beginPath(); g.arc(0, 0, R * .28, 0, 6.283); g.fill();
+    return (moteArt = c);
+  }
+  function drawMotes(t) {
+    const B = world.beacon; if (!B || !me) return;
+    const art = moteSprite(), R = CR.MOTE_R, sz = R * 6;
+    let s = -1;
+    ctx.save(); ctx.strokeStyle = "rgba(255,224,138,.28)"; ctx.lineWidth = 1.5; ctx.beginPath();
+    const live = [];
+    for (const m of B.motes) {
+      if (m.t > t) break;
+      if (me.moteDone.has(m.id)) { s = -1; continue; }
+      const p = CR.moteAt(m, t); if (p.y - R > H) { s = -1; continue; }
+      if (m.s !== s) { ctx.moveTo(p.x, p.y); s = m.s; } else ctx.lineTo(p.x, p.y);
+      live.push(p);
+    }
+    ctx.stroke(); ctx.restore();
+    for (const p of live) { const k = 1 + (calm() ? 0 : Math.sin(t * .15 + p.x) * .1); ctx.drawImage(art, p.x - sz / 2 * k, p.y - sz / 2 * k, sz * k, sz * k); }
+    /* charge ring: fills toward the goal, gone once the beacon is lit */
+    if (me.alive && me.beaconLit == null) {
+      const f = Math.min(1, me.stars / B.goal);
+      ctx.save(); ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.strokeStyle = "rgba(141,147,191,.3)"; ctx.beginPath(); ctx.arc(me.x, me.y, 28, 0, 6.283); ctx.stroke();
+      if (f > 0) { ctx.strokeStyle = "#ffcc4d"; ctx.beginPath(); ctx.arc(me.x, me.y, 28, -Math.PI / 2, -Math.PI / 2 + f * 6.283); ctx.stroke(); }
+      ctx.restore();
+    }
+  }
+  /* behind the hazards: once lit, the top of the sky stays softly golden */
+  function drawBeaconVeil(t) {
+    if (!beaconFx || t < beaconFx.t) return;
+    if (!bVeil) { bVeil = ctx.createLinearGradient(0, 0, 0, H * .6); bVeil.addColorStop(0, "rgba(255,224,138,.16)"); bVeil.addColorStop(1, "rgba(255,224,138,0)"); }
+    ctx.save(); ctx.globalAlpha = Math.min(1, (t - beaconFx.t) / 40); ctx.fillStyle = bVeil; ctx.fillRect(0, 0, W, H * .6); ctx.restore();
+  }
+  /* in front: a pillar of light rising from where you lit it (about 1.2 s), softer in Calm effects */
+  function drawBeaconPillar(t) {
+    if (!beaconFx || t < beaconFx.t) return;
+    const p = t - beaconFx.t; if (p >= 72) return;
+    if (!bPillar) { bPillar = ctx.createLinearGradient(-30, 0, 30, 0); bPillar.addColorStop(0, "rgba(255,224,138,0)"); bPillar.addColorStop(.35, "rgba(255,224,138,.55)"); bPillar.addColorStop(.5, "rgba(255,255,255,.9)"); bPillar.addColorStop(.65, "rgba(255,224,138,.55)"); bPillar.addColorStop(1, "rgba(255,224,138,0)"); }
+    const rise = ease(Math.min(1, p / 22)), fade = Math.min(1, (72 - p) / 30), wk = calm() ? .6 : 1 + .25 * Math.sin(p * .4);
+    ctx.save(); ctx.globalAlpha = fade * (calm() ? .5 : .85); ctx.translate(beaconFx.x, 0); ctx.scale(wk, 1);
+    ctx.fillStyle = bPillar; const top = beaconFx.y - beaconFx.y * rise; ctx.fillRect(-30, top, 60, beaconFx.y - top + 10);
+    ctx.restore();
   }
   /* ---------- BLACK HOLE (display only; position, bending and swallowing live in window.CR) ----------
      Purple glow, infalling streaks, a tilted accretion disk with a hot rim, a white photon ring and a pitch-black core. */
@@ -3878,6 +4845,53 @@ button.lk { cursor: pointer; }
     }
     ctx.restore();
   }
+  /* Comet warnings: a red dashed column and a "!" a second before each comet. Drawn again on top of the dark in a blackout. */
+  function drawCometWarn(vt) {
+    for (const it of world.items) {
+      if (it.t > vt + 60) break;
+      if (!it.streak || it.t <= vt || CR.hiddenAt(world, it.t)) continue;
+      const k = 1 - (it.t - vt) / 60;
+      ctx.save(); ctx.strokeStyle = `rgba(255,79,98,${0.25 + 0.5 * k * (Math.floor(vt / 5) % 2 ? 1 : .5)})`; ctx.lineWidth = 2 + k * 6; ctx.setLineDash([10, 8]);
+      ctx.beginPath(); ctx.moveTo(it.x, 56); ctx.lineTo(it.x, H); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = "#ff4f62"; ctx.font = "700 20px 'Chakra Petch', sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", it.x, 78);
+    }
+  }
+  /* ---------- BLACKOUT (v40; display only, the dark's timing and the lamp live in window.CR) ----------
+     A cached dark mask with a soft hole around the ship (one per lamp size), a warm lamp rim, then glints so every rock
+     and star stays readable at the edge of the dark. Comet warnings are redrawn on top. */
+  const darkMasks = new Map(), DARK_C = "rgba(3,4,12,.95)";
+  function darkMask(R) {
+    if (darkMasks.has(R)) return darkMasks.get(R);
+    /* just the lamp's square: the rest of the screen is plain dark fills, which cost far less than a full-screen image */
+    const c = document.createElement("canvas"); c.width = c.height = R * 2;
+    const g = c.getContext("2d");
+    g.fillStyle = DARK_C; g.fillRect(0, 0, R * 2, R * 2);
+    g.globalCompositeOperation = "destination-out";
+    const h = g.createRadialGradient(R, R, 0, R, R, R);
+    h.addColorStop(0, "rgba(0,0,0,1)"); h.addColorStop(.62, "rgba(0,0,0,1)"); h.addColorStop(.85, "rgba(0,0,0,.6)"); h.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = h; g.beginPath(); g.arc(R, R, R, 0, 6.283); g.fill();
+    darkMasks.set(R, c); return c;
+  }
+  function drawBlackout(t, vt, act) {
+    const d = CR.blackoutAt(world, t); if (d <= 0 || !me) return;
+    const fl = !calm() && t - world.blackout.from < 40 ? (Math.floor(t / 4) % 2 ? .55 : 1) : 1, R = CR.LAMP_R0 + me.lamp * CR.LAMP_STEP;
+    ctx.save(); ctx.globalAlpha = d * fl; const x0 = Math.round(me.x - R), y0 = Math.round(me.y - R), x1 = x0 + R * 2, y1 = y0 + R * 2;
+    ctx.drawImage(darkMask(R), x0, y0); ctx.fillStyle = DARK_C;
+    ctx.fillRect(-20, -20, W + 40, y0 + 20); ctx.fillRect(-20, y1, W + 40, H + 20 - y1); ctx.fillRect(-20, y0, x0 + 20, R * 2); ctx.fillRect(x1, y0, W + 20 - x1, R * 2);
+    ctx.globalAlpha = d * .5; ctx.strokeStyle = "#ffe08a"; ctx.lineWidth = 1.5; ctx.setLineDash([3, 9]); ctx.lineDashOffset = calm() ? 0 : -t * .4;
+    ctx.beginPath(); ctx.arc(me.x, me.y, R * .78, 0, 6.283); ctx.stroke(); ctx.setLineDash([]);
+    /* glints: an ember ring on every rock and a gold spark on every star out in the dark */
+    const far = R * .7, rk = new Path2D(), st = new Path2D();
+    for (const a of act) {
+      if (Math.hypot(a.x - me.x, a.y - me.y) < far || a.y < -20) continue;
+      if (a.it.kind === "rock") { if (me.smashed.has(a.it.id)) continue; rk.moveTo(a.x + a.it.r + 2, a.y); rk.arc(a.x, a.y, a.it.r + 2, 0, 6.283); }
+      else if (!me.got.has(a.it.id)) { st.moveTo(a.x + 4, a.y); st.arc(a.x, a.y, 4, 0, 6.283); }
+    }
+    ctx.globalAlpha = d; ctx.strokeStyle = "rgba(255,122,61,.85)"; ctx.lineWidth = 2; ctx.stroke(rk);
+    ctx.fillStyle = "#ffcc4d"; ctx.globalAlpha = d * (calm() ? .8 : .65 + .3 * Math.sin(t * .2)); ctx.fill(st);
+    ctx.restore();
+    drawCometWarn(vt);
+  }
   function drawCores(list, t) {
     for (const a of list) {
       const r = a.r * (1 + Math.sin(t * 0.18 + a.c.id) * 0.1);
@@ -3926,7 +4940,14 @@ button.lk { cursor: pointer; }
     ctx.setTransform(sx, 0, 0, sy, 0, 0);
     const playing = state === "play" || state === "dying" || state === "over" || state === "paused" || state === "countdown";
     const t = me && playing ? me.t : 0;
-    if (theme) TH.drawBackground(ctx, bgT, theme, lowGfx());
+    const bgDark = me && world && world.blackout && (state === "play" || state === "dying" || state === "paused" || state === "countdown") && CR.blackoutAt(world, me.t) >= 1 && !(me.t - world.blackout.from < 40);
+    if (bgDark) {
+      /* v40: in full blackout the scenery is hidden anyway, so only paint it inside the lamp */
+      const Rl = CR.LAMP_R0 + me.lamp * CR.LAMP_STEP;
+      ctx.fillStyle = "#04050d"; ctx.fillRect(0, 0, W, H);
+      ctx.save(); ctx.beginPath(); ctx.rect(me.x - Rl, me.y - Rl, Rl * 2, Rl * 2); ctx.clip();
+      TH.drawBackground(ctx, bgT, theme, lowGfx(), feverWarm()); ctx.restore();
+    } else if (theme) TH.drawBackground(ctx, bgT, theme, lowGfx(), feverWarm());
     else { ctx.fillStyle = "#070a1a"; ctx.fillRect(0, 0, W, H); }
     if (playing && world) {
       const ev = world.events.find(e => t >= e.t - 20 && t < e.t + e.dur && !CR.eventHidden(world, e));
@@ -3936,7 +4957,7 @@ button.lk { cursor: pointer; }
         eg.addColorStop(0, `rgba(${EVENT_INFO[ev.type].tint},${a * 2})`); eg.addColorStop(1, `rgba(${EVENT_INFO[ev.type].tint},0)`);
         ctx.fillStyle = eg; ctx.fillRect(0, 0, W, H);
       }
-      drawLightVeil(t);
+      drawLightVeil(t); drawBeaconVeil(t);
     }
     if (shake > 0) { const sk = calm() ? shake * 0.2 : shake; ctx.translate((Math.random() - .5) * sk, (Math.random() - .5) * sk); }
     const speed = state === "play" ? 1 + t / 1800 : 0.4;
@@ -3957,19 +4978,14 @@ button.lk { cursor: pointer; }
       return;
     }
     const vt = playing ? t : 300 + Math.floor(bgT * 1.5) % 1200;
-    if (playing) {
-      for (const it of world.items) {
-        if (it.t > vt + 60) break;
-        if (!it.streak || it.t <= vt || CR.hiddenAt(world, it.t)) continue;
-        const k = 1 - (it.t - vt) / 60;
-        ctx.save(); ctx.strokeStyle = `rgba(255,79,98,${0.25 + 0.5 * k * (Math.floor(vt / 5) % 2 ? 1 : .5)})`; ctx.lineWidth = 2 + k * 6; ctx.setLineDash([10, 8]);
-        ctx.beginPath(); ctx.moveTo(it.x, 56); ctx.lineTo(it.x, H); ctx.stroke(); ctx.restore();
-        ctx.fillStyle = "#ff4f62"; ctx.font = "700 20px 'Chakra Petch', sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", it.x, 78);
-      }
-    }
-    if (playing) { drawWell(t); drawFlare(t); drawEntranceBack(t); }
-    for (const a of CR.active(world, vt)) {
+    if (playing) drawCometWarn(vt);
+    if (playing) { drawWell(t); drawFlare(t); drawEntranceBack(t); drawSearchlight(t); }
+    const act = CR.active(world, vt);
+    /* v40: in full blackout, hazards far outside the lamp are only drawn as glints (cheaper than the full 3D rock) */
+    const darkR = playing && me && world.blackout && CR.blackoutAt(world, t) >= 1 ? CR.LAMP_R0 + me.lamp * CR.LAMP_STEP : 0;
+    for (const a of act) {
       const k = a.it.kind;
+      if (darkR && Math.hypot(a.x - me.x, a.y - me.y) > darkR + a.it.r) continue;
       if (k === "rock") { if (!(playing && (me.smashed.has(a.it.id) || (shattered.has(a.it.id) && me.inv > 0)))) drawMeteor(a, vt); }
       else if (playing && me.got.has(a.it.id)) continue;
       else if (k === "star") drawStar(a.x, a.y, a.it.r, vt, a.it.gold);
@@ -3983,14 +4999,17 @@ button.lk { cursor: pointer; }
       const ba = CR.bossActive(world, me, t);
       drawCores(ba.cores, t); shots = ba.shots;
     }
+    if (playing) { drawEscort(t); drawRescue(t); drawFrags(t); drawMotes(t); }
     if (playing) {
       if (t < ghost.path.length - 1) {
         ghostRoll += (Math.max(-0.7, Math.min(0.7, (ghost.path[t] - (ghost.path[t - 1] ?? ghost.path[t])) * 0.18)) - ghostRoll) * 0.2;
-        drawShip(ghost.path[t], SHIP_Y, "#4fe0cf", "#4fe0cf", 0.4, false, t, 1, ghostRoll);
-        ctx.font = "13px sans-serif"; ctx.textAlign = "center"; ctx.globalAlpha = .85; ctx.fillText(world.partner[0], ghost.path[t], SHIP_Y + 34); ctx.globalAlpha = 1;
+        const gy = ghost.ys ? ghost.ys[t] : SHIP_Y; /* v37: a friend's ghost flies their real path, up and down too */
+        drawShip(ghost.path[t], gy, ghost.col || "#4fe0cf", ghost.col || "#4fe0cf", ghost.race ? 0.5 : 0.4, false, t, 1, ghostRoll, ghost.model);
+        if (ghost.name) { ctx.save(); ctx.globalAlpha = .85; ctx.fillStyle = ghost.col || "#4fe0cf"; ctx.font = "700 11px 'Chakra Petch', sans-serif"; ctx.textAlign = "center"; ctx.fillText(ghost.name.toUpperCase(), ghost.path[t], gy + 32); ctx.restore(); }
+        else { ctx.font = "13px sans-serif"; ctx.textAlign = "center"; ctx.globalAlpha = .85; ctx.fillText(world.partner[0], ghost.path[t], SHIP_Y + 34); ctx.globalAlpha = 1; }
       } else if (t < ghost.path.length + 40) {
-        ctx.strokeStyle = "rgba(79,224,207,.6)"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(ghost.path[ghost.path.length - 1], SHIP_Y, (t - ghost.path.length) * 1.2 + 6, 0, 6.28); ctx.stroke();
+        ctx.strokeStyle = ghost.race ? "rgba(240,106,208,.6)" : "rgba(79,224,207,.6)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(ghost.path[ghost.path.length - 1], ghost.ys ? ghost.ys[ghost.ys.length - 1] : SHIP_Y, (t - ghost.path.length) * 1.2 + 6, 0, 6.28); ctx.stroke();
       }
       if (pbLive) {
         const n = pbLive.xs.length;
@@ -4032,11 +5051,12 @@ button.lk { cursor: pointer; }
       }
     }
     drawShots(shots, t);
+    if (playing && world.blackout) drawBlackout(t, vt, act);
     if (chunks.length) drawChunks();
     fxDrawRings(ctx, rings); fxDrawParticles(ctx, particles); fxDrawBooms(ctx, booms);
     for (const f of floaters) { ctx.globalAlpha = Math.max(0, 1 - f.t / 45); ctx.fillStyle = f.color; ctx.font = `700 ${f.size}px 'Chakra Petch', sans-serif`; ctx.textAlign = "center"; ctx.fillText(f.text, f.x, f.y - f.t * 0.8); }
     ctx.globalAlpha = 1;
-    if (playing && me) { drawLightWash(t); drawEntranceFront(t); }
+    if (playing && me) { drawLightWash(t); drawBeaconPillar(t); drawEntranceFront(t); }
     if (flash && flash.a > 0) { ctx.fillStyle = `rgba(${flash.c},${flash.a * (calm() ? 0.18 : 0.5)})`; ctx.fillRect(-20, -20, W + 40, H + 40); }
     ctx.setTransform(sx, 0, 0, sy, 0, 0);
     if (playing && me) { drawSlowMo(); if (me.alive) drawComboGlow(t); }
@@ -4059,6 +5079,14 @@ button.lk { cursor: pointer; }
       const w = ctx.measureText(sc).width;
       ctx.fillStyle = "#ffcc4d"; ctx.font = `700 ${14 + me.mult * 2}px 'Chakra Petch', sans-serif`;
       ctx.fillText("×" + me.mult, 22 + w, 30);
+      if (me.fever > 0) {
+        /* v36: FEVER next to the multiplier, with a bar that drains as it runs out */
+        const fx = 22 + w + ctx.measureText("×" + me.mult).width + 6, k = me.fever / me.feverMax;
+        ctx.font = "700 11px 'Chakra Petch', sans-serif"; ctx.fillStyle = "#ff7a3d"; ctx.fillText("FEVER", fx, 21);
+        const fw = ctx.measureText("FEVER").width;
+        ctx.fillStyle = "rgba(141,147,191,.3)"; ctx.fillRect(fx, 25, fw, 4);
+        ctx.fillStyle = "#ffcc4d"; ctx.fillRect(fx, 25, fw * k, 4);
+      }
     }
     // combo meter: stars toward next multiplier
     if (me.mult < 5) {
@@ -4079,7 +5107,8 @@ button.lk { cursor: pointer; }
     const gs = ghost.scores[Math.min(t, ghost.scores.length - 1)], lead = me.score - gs;
     ctx.textAlign = "right"; ctx.font = "600 11px 'Chakra Petch', sans-serif";
     ctx.fillStyle = t >= ghost.t || lead >= 0 ? "#4fe0cf" : "#ff7a3d";
-    ctx.fillText(t >= ghost.t ? `GHOST ${world.partner[0]} OUT` : `GHOST ${world.partner[0]} ${lead >= 0 ? "+" : "−"}${Math.abs(lead).toLocaleString()}`, W - 14, 46);
+    const gl = ghost.name ? ghost.name.toUpperCase() : `GHOST ${world.partner[0]}`;
+    ctx.fillText(t >= ghost.t ? `${gl} OUT` : `${gl} ${lead >= 0 ? "+" : "−"}${Math.abs(lead).toLocaleString()}`, W - 14, 46);
     if (pbLive) {
       const pd = me.score - pbLive.scores[Math.min(t, pbLive.scores.length - 1)];
       ctx.textAlign = "left"; ctx.fillStyle = pd >= 0 ? "#4fe0cf" : PB_COL;
@@ -4119,11 +5148,15 @@ button.lk { cursor: pointer; }
     rings = rings.filter(g => g.r < g.max);
     shake *= .85; if (shake < .5) shake = 0;
     if (bossFlash > 0) bossFlash--;
+    if (escFlash > 0) escFlash--;
+    if (spotFx > 0) spotFx--;
     if (flash) { flash.a *= .88; if (flash.a < .02) flash = null; }
     {
       const run = me && (state === "play" || state === "countdown" || state === "dying");
       MUSIC.want.on = !save.musicOff;
-      MUSIC.want.style = run ? (curLevel ? curLevel.w : theme ? theme.world : 0) : "menu";
+      /* v36 (fun plan 3): the run's music keeps playing on the results screen, so Retry jumps straight back into the beat */
+      MUSIC.want.style = run || (me && state === "over") ? (curLevel ? curLevel.w : theme ? theme.world : 0) : "menu";
+      MUSIC.want.fever = !!(run && me.alive && me.fever > 0);
       MUSIC.want.boost = run ? Math.min(4, (sector || 1) - 1) : 0;
       MUSIC.want.boss = !!(run && me.alive && bossNow(me.t));
       MUSIC.want.dim = run && (slowMs > 0 || hitStopMs > 0);
@@ -4151,7 +5184,7 @@ button.lk { cursor: pointer; }
     };
     try { console.warn("Meteor Pilot: start failed", err); } catch (e) {}
   }
-  try { setup(true); paintChips(); showStart(); } catch (err) { rescue(err); }
+  try { setup(true); paintChips(); showStart(); openChallengeFromHash(); } catch (err) { rescue(err); }
   fit(); resize();
   requestAnimationFrame(t => { last = t; frame(t); });
 })();
