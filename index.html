@@ -1132,6 +1132,7 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 45, date: "2026-11-13", notes: ["Chapter 3, \"Turning Tide\": levels 21 to 30 are now story missions with their own names, briefings and win scenes", "Nova flies with the crew now, and knows her way around the Prism Rings", "Kestrel vanishes into the Silence. Light the beacon in Mission 27 to guide her home", "Kestrel joins your crew as your wingman, then face Husk III together"] },
     { v: 44, date: "2026-11-12", notes: ["Chapter 2, \"The Dark Belt\": levels 11 to 20 are now story missions with their own names, crew briefings and win scenes", "A faint signal is coming from inside the Silence. Follow it all the way to Mission 20", "Break Husk II and meet Nova, a lost pilot with her own radio portrait", "Three new crew stories can turn up after a missed goal, kind as always"] },
     { v: 43, date: "2026-11-12", notes: ["New mission type: Light the Beacon! Golden light streams snake down the sky", "Every light mote counts as a star, so ride a stream to build your combo and Fever", "Catch 50 stars in one run and the beacon blazes up from your ship, +300", "Try it in Level 27, \"Beacon Fire\", and earn the new Lighthouse trophy"] },
     { v: 42, date: "2026-11-12", notes: ["New mission type: Heist! Steal glowing core fragments right out from under the Silence", "Its red searchlight sweeps the sky. Get spotted and it costs a shield, but never your run", "Fragments drift down marked paths, +100 each. Grab 4 of the 6", "Try it in Level 23, \"Core Heist\", and earn the new Shadow Runner trophy"] },
@@ -2408,6 +2409,36 @@ button.lk { cursor: pointer; }
     "m20.b2": { who: "vega", mood: "worried", text: "Husk Two is holding a pilot. {goal}." },
     "m20.b3": { who: "vega", mood: "happy", text: "Break its core and bring her home." },
     "m20.win": { who: "nova", mood: "happy", text: "You came for me. I'm Nova. Thank you, pilot." },
+    /* v45 chapter 3 "Turning Tide" (missions 21–30): Nova joins, Kestrel is lost to the Silence, a beacon brings her home */
+    "m21.b1": { who: "vega", mood: "worried", text: "Chapter three. Prism Rings, where the Silence hides its core." },
+    "m21.b2": { who: "nova", mood: "happy", text: "{goal}. I know these rings. Follow me." },
+    "m21.win": { who: "nova", mood: "happy", text: "We made it! The rings remember the light." },
+    "m22.b1": { who: "nova", mood: "neutral", text: "The Silence hides stolen starlight out here. Let's take it back." },
+    "m22.b2": { who: "bolt", mood: "happy", text: "{goal}. Nova's ship is fixed. Mostly. Don't ask." },
+    "m22.win": { who: "bolt", mood: "shout", text: "Look at that haul! The ice is sparkling again!" },
+    "m23.b1": { who: "kestrel", mood: "smirk", text: "A heist? Count me in. I'm great at sneaking." },
+    "m23.win": { who: "kestrel", mood: "smirk", text: "Clean getaway, rookie! Okay. You're kind of great." },
+    "m24.b1": { who: "kestrel", mood: "smirk", text: "Watch me skim these rocks. Try to keep up!" },
+    "m24.b2": { who: "vega", mood: "worried", text: "{goal}. Kestrel, stay close. Something feels wrong." },
+    "m24.win": { who: "vega", mood: "worried", text: "Kestrel's signal went dark. Don't worry. We'll find her." },
+    "m25.b1": { who: "bolt", mood: "worried", text: "Kestrel flew in here. Her trail runs through the gates." },
+    "m25.b2": { who: "vega", mood: "neutral", text: "{goal}. Follow her trail, pilot." },
+    "m25.win": { who: "bolt", mood: "happy", text: "Pink paint on a rock! She came this way." },
+    "m26.b1": { who: "silence", mood: "neutral", text: "The fast one is mine now. She is so quiet." },
+    "m26.b2": { who: "vega", mood: "neutral", text: "{goal}. Light makes the Silence weaker. Bring lots." },
+    "m26.win": { who: "vega", mood: "happy", text: "Her signal is back! Faint, but she's calling us." },
+    "m27.b1": { who: "kestrel", mood: "worried", text: "Rookie? Is that you? I can't see a thing in here." },
+    "m27.win": { who: "kestrel", mood: "happy", text: "I saw your beacon and flew home. Thanks, partner." },
+    "m28.b1": { who: "kestrel", mood: "happy", text: "I owe you one. So I'm on your crew now." },
+    "m28.b2": { who: "vega", mood: "happy", text: "Welcome aboard, Kestrel. {goal}." },
+    "m28.win": { who: "kestrel", mood: "shout", text: "Golden catch! Fine, you're the best. Don't tell anyone." },
+    "m29.b1": { who: "vega", mood: "worried", text: "Husk Three guards the Prism core. We need everything." },
+    "m29.b2": { who: "bolt", mood: "happy", text: "{goal}. Big numbers, big light. Go!" },
+    "m29.win": { who: "kestrel", mood: "smirk", text: "Nice score, partner. Husk Three won't know what hit it." },
+    "m30.b1": { who: "silence", mood: "neutral", text: "You took my fast one. I will take your light." },
+    "m30.b2": { who: "vega", mood: "worried", text: "Husk Three! {goal}." },
+    "m30.b3": { who: "kestrel", mood: "happy", text: "I've got your wing this time. Break that core!" },
+    "m30.win": { who: "vega", mood: "shout", text: "Husk Three is down! The Prism Rings are singing!" },
     /* v33 debriefs. A win cheers; a loss is always kind and moves the story on a little */
     "win.1": { who: "vega", mood: "happy", text: "Mission complete. The galaxy's a little brighter." },
     "win.2": { who: "bolt", mood: "happy", text: "She came back shiny! Great flying." },
@@ -2426,6 +2457,8 @@ button.lk { cursor: pointer; }
     "lore.7": { who: "bolt", mood: "neutral", text: "The Dark Belt had a hundred lighthouses once. We'll relight them." },
     "lore.8": { who: "vega", mood: "neutral", text: "The Silence was quiet once. Then it got hungry for light." },
     "lore.9": { who: "kestrel", mood: "smirk", text: "I crashed here plenty too, rookie. Don't tell anyone." },
+    "lore.10": { who: "nova", mood: "neutral", text: "Inside the Silence it was cold. Your light felt warm." },
+    "lore.11": { who: "vega", mood: "happy", text: "The Prism Rings once sang with the Heart. They will again." },
     "tune.1": { who: "bolt", mood: "happy", text: "I tuned her up. One extra shield, on the house." },
     /* v34 boss entrances: the Silence speaks once before each husk; light floods back when its core breaks */
     "boss.1": { who: "silence", mood: "neutral", text: "More light? I will drink it all." },
@@ -2444,8 +2477,8 @@ button.lk { cursor: pointer; }
   /* Husk name plates for the boss entrance: daily runs by order, level finales by world */
   const HUSKS = ["HUSK I", "HUSK II", "HUSK III", "HUSK IV"];
   /* MISSIONS: the story campaign, keyed by level number. Each mission names its briefing and win lines from LINES.
-     The goal and the three star checks come from makeLevels, so the rules stay exactly the same. Chapters 2–4 come next. */
-  const CHAPTERS = [{ n: 1, name: "First Light", from: 1, to: 10 }, { n: 2, name: "The Dark Belt", from: 11, to: 20 }];
+     The goal and the three star checks come from makeLevels, so the rules stay exactly the same. Chapter 4 comes next. */
+  const CHAPTERS = [{ n: 1, name: "First Light", from: 1, to: 10 }, { n: 2, name: "The Dark Belt", from: 11, to: 20 }, { n: 3, name: "Turning Tide", from: 21, to: 30 }];
   const MISSIONS = {
     1: { title: "First Light", brief: ["m1.b1", "m1.b2"], win: "m1.win" },
     2: { title: "Catch the Spark", brief: ["m2.b1", "m2.b2"], win: "m2.win" },
@@ -2467,11 +2500,22 @@ button.lk { cursor: pointer; }
     17: { title: "A Faint Signal", brief: ["m17.b1", "m17.b2"], win: "m17.win" },
     18: { title: "Lights Out", brief: ["m18.b1", "lv.goal", "lv.blackout"], win: "m18.win" },
     19: { title: "Charge the Lamps", brief: ["m19.b1", "m19.b2"], win: "m19.win" },
-    20: { title: "Into the Silence", brief: ["m20.b1", "m20.b2", "m20.b3"], win: "m20.win" }
+    20: { title: "Into the Silence", brief: ["m20.b1", "m20.b2", "m20.b3"], win: "m20.win" },
+    /* v45 chapter 3 */
+    21: { title: "Turning Tide", brief: ["m21.b1", "m21.b2"], win: "m21.win" },
+    22: { title: "Stolen Starlight", brief: ["m22.b1", "m22.b2"], win: "m22.win" },
+    23: { title: "Core Heist", brief: ["m23.b1", "lv.goal", "lv.heist"], win: "m23.win" },
+    24: { title: "Showboat", brief: ["m24.b1", "m24.b2"], win: "m24.win" },
+    25: { title: "Kestrel's Trail", brief: ["m25.b1", "m25.b2"], win: "m25.win" },
+    26: { title: "A Voice in the Ice", brief: ["m26.b1", "m26.b2"], win: "m26.win" },
+    27: { title: "Beacon Fire", brief: ["m27.b1", "lv.goal", "lv.beacon"], win: "m27.win" },
+    28: { title: "Wingman", brief: ["m28.b1", "m28.b2"], win: "m28.win" },
+    29: { title: "Power Up", brief: ["m29.b1", "m29.b2"], win: "m29.win" },
+    30: { title: "Husk Three", brief: ["m30.b1", "m30.b2", "m30.b3"], win: "m30.win" }
   };
   const TYPE_TITLES = { 13: "Lifeboats", 14: "Redline Duel", 16: "Lantern Run", 18: "Lights Out", 23: "Core Heist", 27: "Beacon Fire" };
   const chapterOf = n => CHAPTERS.find(c => n >= c.from && n <= c.to) || null;
-  const LOSE_LINES = ["lose.1", "lose.2", "lose.3", "lose.4", "lose.5"], LORE_LINES = ["lore.1", "lore.2", "lore.3", "lore.4", "lore.5", "lore.6", "lore.7", "lore.8", "lore.9"];
+  const LOSE_LINES = ["lose.1", "lose.2", "lose.3", "lose.4", "lose.5"], LORE_LINES = ["lore.1", "lore.2", "lore.3", "lore.4", "lore.5", "lore.6", "lore.7", "lore.8", "lore.9", "lore.10", "lore.11"];
   /* Campaign progress: level runs that missed the goal, and how many world facts have been told. Every 10th miss earns Bolt's free tune-up. */
   save.camp = Object.assign({ fails: 0, lore: 0, tune: false }, isObj(save.camp) ? save.camp : {});
   if (!Number.isInteger(save.camp.fails) || save.camp.fails < 0) save.camp.fails = 0;
@@ -2620,11 +2664,13 @@ button.lk { cursor: pointer; }
 
   /* The radio window. mode "brief": big, tap to advance, auto-advances; "mini": compact, during a run, hides itself. */
   const RAD = { q: [], cur: null, mode: null, done: null, shown: 0, hold: 0, ft: 0, blipN: 0, lastMid: -1e9, mids: 0, said: new Set(), cv: null };
+  /* v45: once Kestrel is guided home (Mission 27 cleared) she flies as your wingman */
+  const roleOf = who => who === "kestrel" && (save.levels[27] || 0) >= 1 ? "Wingman" : CREW[who].role;
   function radioRender() {
     const el = $("#radio"), L = RAD.cur, C = CREW[L.who];
     el.className = "radio" + (RAD.mode === "mini" ? " mini" : "") + (L.who === "silence" ? " silence" : "");
     el.style.setProperty("--cc", C.color);
-    el.innerHTML = `<canvas width="128" height="128" aria-hidden="true"></canvas><div><div class="who"><span>${C.name}</span><small>${C.role}</small></div><div class="say"></div></div>`;
+    el.innerHTML = `<canvas width="128" height="128" aria-hidden="true"></canvas><div><div class="who"><span>${C.name}</span><small>${roleOf(L.who)}</small></div><div class="say"></div></div>`;
     RAD.cv = el.querySelector("canvas"); el.hidden = false;
     el.setAttribute("aria-label", `${C.name}: ${L.text}`);
     stage.classList.toggle("radioing", RAD.mode === "mini");

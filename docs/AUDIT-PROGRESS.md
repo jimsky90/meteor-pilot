@@ -16,3 +16,4 @@ Items from `docs/EXPERT-AUDIT-v25.md` that are done, by version. The update task
 - **v37** (2026-11-11): Fun 1 (challenge links).
 - **v38–v43** (2026-11-11/12): Mission 5 (mission types: Escort, Rescue, Blackout, Race the Rival, Heist, Light the Beacon).
 - **v44** (2026-11-12): Mission 6 part 1 (Chapter 2 "The Dark Belt" story missions, Nova).
+- **v45** (2026-11-13): Mission 6 part 2 (Chapter 3 "Turning Tide" story missions; Kestrel joins as wingman).
