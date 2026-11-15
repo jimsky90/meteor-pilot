@@ -302,6 +302,26 @@ button.card { width: 100%; text-align: left; font: inherit; color: inherit; curs
 .chalcard .shipimg { width: 56px; height: 56px; }
 .chalcard .quick { color: var(--ink); font-size: 17px; max-width: 26ch; }
 .chalcard .quick b.g { color: var(--gold); }
+/* v46 (mission plan 6): the ending. The Heart is reborn, the sectors light up, and the credits roll over the beacon map */
+.ending { padding: 0; gap: 0; justify-content: flex-start; overflow: hidden; background: #04050d; }
+.endroll { position: relative; flex: 1; width: 100%; min-height: 0; overflow: hidden; }
+.endmap { position: absolute; left: 12px; right: 12px; top: 0; opacity: .38; pointer-events: none; }
+.endscrim { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(4,5,13,.82), rgba(4,5,13,.6) 75%); pointer-events: none; }
+.roll { position: absolute; left: 0; right: 0; top: 0; display: grid; justify-items: center; gap: 16px; padding: 28px 16px 36px; text-align: center; }
+.heart { width: 116px; height: 116px; border-radius: 50%; background: radial-gradient(circle, #fff 0 14%, #fff3c4 22%, rgba(255,204,77,.75) 38%, rgba(255,122,61,.25) 58%, rgba(255,122,61,0) 70%);
+  box-shadow: 0 0 60px 8px rgba(255,204,77,.3); animation: heartborn 2.4s cubic-bezier(.2,1.2,.4,1) both, heartbeat 2.2s 2.4s ease-in-out infinite; }
+@keyframes heartborn { from { transform: scale(.05); opacity: 0; } }
+@keyframes heartbeat { 50% { transform: scale(1.06); } }
+.esecs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 300px; }
+.esec { font-family: var(--f-display); font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--wc);
+  color: var(--ink); background: rgba(7,10,26,.85); box-shadow: 0 0 14px -2px var(--wc); animation: seclit .8s var(--d) both; }
+@keyframes seclit { from { opacity: .3; box-shadow: none; border-color: var(--rule); color: var(--muted); } }
+.credits { display: grid; gap: 14px; max-width: 300px; }
+.credits div { display: grid; gap: 2px; }
+.credits b { font-family: var(--f-display); font-size: 16px; letter-spacing: .06em; text-transform: uppercase; color: var(--tide); }
+.credits span { font-size: 15px; color: var(--ink); }
+.ending.calm .heart, .ending.calm .esec { animation: none; }
+.endbar { flex: none; display: flex; gap: 8px; justify-content: center; padding: 10px 16px 14px; width: 100%; box-sizing: border-box; background: rgba(4,5,13,.94); border-top: 1px solid var(--rule); }
 /* trophies */
 .trophies { justify-content: flex-start; align-items: stretch; text-align: left; gap: 10px; }
 .tgrid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
@@ -379,6 +399,7 @@ button.lk { cursor: pointer; }
   <div class="overlay trophies" id="trophies" hidden></div>
   <div class="overlay settings" id="settings" hidden></div>
   <div class="overlay" id="chal" hidden></div>
+  <div class="overlay ending" id="ending" hidden></div>
   <button class="pausebtn" id="pausebtn" aria-label="Pause" hidden>❚❚</button>
   <div class="toast" id="toast" hidden></div>
 </div>
@@ -661,7 +682,7 @@ button.lk { cursor: pointer; }
       combo: 0, mult: 1, maxMult: 1, magnet: 0, smashed: new Set(), close: new Set(), hitIds: new Set(),
       nearDone: new Set(), near: 0, powers: 0, gates: 0, gateHit: new Set(), gateDone: new Set(), golds: 0,
       bossHp: [], bossKill: [], bossHurt: [], cores: new Set(), coreCount: 0, bossesDown: 0, wells: 0, flares: 0, siphons: 0,
-      fever: 0, feverMax: 0, feverArmed: true, fevers: 0, feverPts: 0, escHp: null, blocks: 0, escLost: false, pods: 0, podLost: 0, podDone: new Set(), lamp: 0, frags: 0, fragDone: new Set(), spotted: 0, motes: 0, moteDone: new Set(), beaconLit: null };
+      fever: 0, feverMax: 0, feverArmed: true, fevers: 0, feverPts: 0, escHp: null, blocks: 0, escLost: false, pods: 0, podLost: 0, podDone: new Set(), lamp: 0, frags: 0, fragDone: new Set(), spotted: 0, motes: 0, moteDone: new Set(), beaconLit: null, crewHits: 0 };
   }
   /* Ship abilities (v25). siphon: every SIPHON_EVERY stars restores a shield. phase: hits leave you phased twice as long, close calls pay double. */
   const SIPHON_EVERY = 15;
@@ -779,6 +800,18 @@ button.lk { cursor: pointer; }
     return { x: m.x + Math.sin(k * m.f + m.ph) * m.sway, y: -MOTE_R + MOTE_VY * k };
   }
 
+  /* ---------- Crew wingmen (v46, mission plan 6: the finale "Dawn"): Kestrel, Nova and Vega fly fixed paths beside you.
+     Every CREW_EVERY ticks (staggered) each one blasts the lowest rock in its own lane above it (+10). They never touch
+     stars, cores or boss bullets, and never block you. The course itself is unchanged. Ticks only, so replays stay exact. ---------- */
+  const CREW_N = 3, CREW_EVERY = 75, CREW_LANE = 30, CREW_PTS = 10, CREW_TOP = 80;
+  function setCrew(world, spec) { world.crew = spec ? { from: spec.from || 0, until: spec.until || MAX_T } : null; return world; }
+  /** Where wingman k (0 Kestrel, 1 Nova, 2 Vega) flies at tick t. */
+  function crewAt(k, t) {
+    if (k === 0) return { x: 62 + Math.sin(t * 0.013) * 34, y: 505 + Math.sin(t * 0.021) * 10 };
+    if (k === 1) return { x: W - 62 + Math.sin(t * 0.011 + 2) * 34, y: 505 + Math.sin(t * 0.019 + 1) * 10 };
+    return { x: W / 2 + Math.sin(t * 0.008 + 1) * 110, y: 455 + Math.sin(t * 0.017) * 12 };
+  }
+
   /* One fixed step for a ship heading to targetX. Returns events for the screen to show. */
   const MIN_Y = H * 0.3, MAX_Y = H - SHIP_R - 18;
   function step(world, r, targetX, maxSpeed, targetY) {
@@ -880,6 +913,21 @@ button.lk { cursor: pointer; }
       const mp = moteAt(m, r.t);
       if (mp.y - MOTE_R > H) { r.moteDone.add(m.id); continue; }
       if (Math.hypot(mp.x - r.x, mp.y - r.y) < (r.magnet > 0 ? 95 : MOTE_R + r.cfg.hit + 4)) { r.moteDone.add(m.id); r.motes++; catchStar(world, r, ev, mp.x, mp.y, false, true); }
+    }
+    if (r.alive && world.crew && r.t >= world.crew.from && r.t < world.crew.until) {
+      for (let k = 0; k < CREW_N; k++) {
+        if ((r.t - world.crew.from) % CREW_EVERY !== k * 25) continue;
+        const c = crewAt(k, r.t);
+        let best = null;
+        for (const a of list) {
+          if (a.it.kind !== "rock" || r.smashed.has(a.it.id) || a.y < CREW_TOP || a.y > c.y - 20) continue;
+          if (Math.abs(a.x - c.x) > CREW_LANE + a.it.r) continue;
+          if (!best || a.y > best.y) best = a;
+        }
+        if (!best) continue;
+        r.smashed.add(best.it.id); r.crewHits++; r.bonus += CREW_PTS;
+        ev.push({ type: "crewShot", k, x: best.x, y: best.y, cx: c.x, cy: c.y, pts: CREW_PTS });
+      }
     }
     if (r.alive && world.heist) {
       for (const f of world.heist.frags) {
@@ -1121,7 +1169,7 @@ button.lk { cursor: pointer; }
     setFlares, beamsAt, BEAM_WARN, BEAM_FIRE, FLARE_LEN, SIPHON_EVERY, firstGatesAt, FEVER_T, FEVER_EVENT_T,
     setEscort, escortAt, ESC_R, ESC_LINK, setRescue, podAt, POD_R, POD_SAFE_Y, POD_PTS, POD_VY,
     setBlackout, blackoutAt, LAMP_R0, LAMP_STEP, LAMP_MAX, recordRival, rivalScore,
-    setHeist, lightAt, fragAt, HEIST_R, FRAG_R, FRAG_PTS, FRAG_VY, setBeacon, moteAt, MOTE_R, BEACON_PTS };
+    setHeist, lightAt, fragAt, HEIST_R, FRAG_R, FRAG_PTS, FRAG_VY, setBeacon, moteAt, MOTE_R, BEACON_PTS, setCrew, crewAt, CREW_N };
 })(typeof module !== "undefined" ? module.exports : window);
 </script>
 <script>
@@ -1132,6 +1180,8 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 47, date: "2026-11-15", notes: ["New setting: Read lines aloud (beta). Your phone can speak the crew's radio lines out loud", "Vega, Bolt, Kestrel, Nova and the Silence each get their own voice", "Briefings wait for the voice to finish, and a tap still skips ahead", "Off by default. Turn it on in Settings to hear a radio check"] },
+    { v: 46, date: "2026-11-14", notes: ["Chapter 4, \"Dawn\": levels 31 to 40 are the last story missions, with their own names, briefings and win scenes", "Find out what the Silence really is. It may not be what you think", "In the final mission, Kestrel, Nova and Vega fly beside you and blast rocks out of your way", "Win it to see the Heart reborn and the credits roll. New trophy: Dawnbringer"] },
     { v: 45, date: "2026-11-13", notes: ["Chapter 3, \"Turning Tide\": levels 21 to 30 are now story missions with their own names, briefings and win scenes", "Nova flies with the crew now, and knows her way around the Prism Rings", "Kestrel vanishes into the Silence. Light the beacon in Mission 27 to guide her home", "Kestrel joins your crew as your wingman, then face Husk III together"] },
     { v: 44, date: "2026-11-12", notes: ["Chapter 2, \"The Dark Belt\": levels 11 to 20 are now story missions with their own names, crew briefings and win scenes", "A faint signal is coming from inside the Silence. Follow it all the way to Mission 20", "Break Husk II and meet Nova, a lost pilot with her own radio portrait", "Three new crew stories can turn up after a missed goal, kind as always"] },
     { v: 43, date: "2026-11-12", notes: ["New mission type: Light the Beacon! Golden light streams snake down the sky", "Every light mote counts as a star, so ride a stream to build your combo and Fever", "Catch 50 stars in one run and the beacon blazes up from your ship, +300", "Try it in Level 27, \"Beacon Fire\", and earn the new Lighthouse trophy"] },
@@ -1294,6 +1344,8 @@ button.lk { cursor: pointer; }
       /* beacon runs keep the flare (the light streams dodge around it) but no black hole */
       if (type === "beacon") CR.setWells(world, []);
       CR.setBeacon(world, type === "beacon" ? beaconSpec(durT) : null);
+      /* v46 the finale "Dawn": the whole crew flies with you and blasts rocks in their lanes */
+      CR.setCrew(world, n === COUNT ? { from: 2 * TPS, until: durT } : null);
       const ghost = CR.recordGhost(world), rival = type === "race" ? CR.recordRival(world) : null;
       const starsAvail = world.items.filter(it => it.kind === "star" && it.t + 180 < durT && !CR.hiddenAt(world, it.t) && !world.swallow.has(it.id)).length;
       const baseScore = Math.floor(durT / 6) + Math.round(starsAvail * 25 * 0.55);
@@ -2014,6 +2066,7 @@ button.lk { cursor: pointer; }
   function bumpStreak() { if (save.lastDay !== day) { save.streak = save.lastDay === day - 1 ? save.streak + 1 : 1; save.lastDay = day; } }
   /* Settings (v21). Display + input only: nothing here changes the rules or scores. */
   save.set = Object.assign({ haptics: true, motion: "auto", gap: "normal", hand: "center", gfx: "high" }, save.set && typeof save.set === "object" ? save.set : {});
+  if (typeof save.set.voice !== "boolean") save.set.voice = false; /* v47: read lines aloud, off by default */
   const lowGfx = () => save.set.gfx === "low";
   save.xp = save.xp || 0; save.pilot = save.pilot || 1;
   const SHIP_RANK = { comet: 1, ember: 2, aurora: 4, nebula: 7, halo: 6, void: 10, phantom: 13 };
@@ -2265,13 +2318,15 @@ button.lk { cursor: pointer; }
      Every line lives in LINES (id → speaker, mood, text) so a voice actor's recordings can drop in later by id.
      Lines are 12 words or fewer. Losing is never shamed. Faces are original, drawn in code. */
   const CREW = {
-    vega: { name: "Vega", role: "Commander", color: "#4fe0cf", blip: 880, skin: "#b07a57", skinD: "#8e5c40", hair: "#241a2e", suit: "#173740" },
-    bolt: { name: "Bolt", role: "Mechanic", color: "#ff7a3d", blip: 620, skin: "#f0c8a4", skinD: "#cf9f7c", hair: "#3b2a20", suit: "#4a2a18" },
-    kestrel: { name: "Kestrel", role: "Rival pilot", color: "#f06ad0", blip: 1040, skin: "#7a4a30", skinD: "#5c3522", hair: "#140c10", suit: "#3a1636" },
-    nova: { name: "Nova", role: "Lost pilot", color: "#dfe4ff", blip: 990, skin: "#e0b08c", skinD: "#bf8c68", hair: "#c9cff0", suit: "#2b2f55" },
-    silence: { name: "The Silence", role: "Unknown signal", color: "#ff4f62", blip: 160 }
+    vega: { name: "Vega", role: "Commander", color: "#4fe0cf", blip: 880, voice: [1.0, 1.0], skin: "#b07a57", skinD: "#8e5c40", hair: "#241a2e", suit: "#173740" },
+    bolt: { name: "Bolt", role: "Mechanic", color: "#ff7a3d", blip: 620, voice: [0.8, 1.08], skin: "#f0c8a4", skinD: "#cf9f7c", hair: "#3b2a20", suit: "#4a2a18" },
+    kestrel: { name: "Kestrel", role: "Rival pilot", color: "#f06ad0", blip: 1040, voice: [1.25, 1.12], skin: "#7a4a30", skinD: "#5c3522", hair: "#140c10", suit: "#3a1636" },
+    nova: { name: "Nova", role: "Lost pilot", color: "#dfe4ff", blip: 990, voice: [1.4, 0.95], skin: "#e0b08c", skinD: "#bf8c68", hair: "#c9cff0", suit: "#2b2f55" },
+    silence: { name: "The Silence", role: "Unknown signal", color: "#ff4f62", blip: 160, voice: [0.2, 0.78] }
   };
   const LINES = {
+    /* v47: heard once when "Read lines aloud" is switched on */
+    "voice.check": { who: "vega", mood: "happy", text: "Radio check. Loud and clear, pilot." },
     /* first flight (Level 1 for a brand-new pilot) */
     "first.1": { who: "vega", mood: "happy", text: "Welcome to the Lightrunners, pilot. I'm Commander Vega." },
     "first.2": { who: "bolt", mood: "happy", text: "Bolt, mechanic. Drag to fly. Please don't dent her." },
@@ -2439,6 +2494,45 @@ button.lk { cursor: pointer; }
     "m30.b2": { who: "vega", mood: "worried", text: "Husk Three! {goal}." },
     "m30.b3": { who: "kestrel", mood: "happy", text: "I've got your wing this time. Break that core!" },
     "m30.win": { who: "vega", mood: "shout", text: "Husk Three is down! The Prism Rings are singing!" },
+    /* v46 chapter 4 "Dawn" (missions 31–40): into the Quantum Void, the Silence's true face, and the whole crew together */
+    "m31.b1": { who: "vega", mood: "worried", text: "Chapter four. The Quantum Void, where the Silence was born." },
+    "m31.b2": { who: "nova", mood: "neutral", text: "{goal}. Stay close. Space bends out here." },
+    "m31.win": { who: "kestrel", mood: "smirk", text: "We're in! Weird place. I kind of like it." },
+    "m32.b1": { who: "bolt", mood: "happy", text: "Every star out here is a seed of the Heart." },
+    "m32.b2": { who: "vega", mood: "neutral", text: "{goal}. Let's plant some light." },
+    "m32.win": { who: "vega", mood: "happy", text: "Little patches of the Void are glowing. Beautiful." },
+    "m33.b1": { who: "kestrel", mood: "smirk", text: "The Silence hates noise. Let's be loud, partner!" },
+    "m33.b2": { who: "vega", mood: "neutral", text: "{goal}. Make every combo count." },
+    "m33.win": { who: "bolt", mood: "shout", text: "Hear that? That's the sound of us winning!" },
+    "m34.b1": { who: "silence", mood: "neutral", text: "Why do you shine, little pilot? It only hurts." },
+    "m34.b2": { who: "vega", mood: "neutral", text: "{goal}. Don't listen. Keep flying." },
+    "m34.win": { who: "nova", mood: "worried", text: "It sounded sad, not angry. Did you hear it?" },
+    "m35.b1": { who: "nova", mood: "neutral", text: "These gates were doors to the Heart, long ago." },
+    "m35.b2": { who: "bolt", mood: "happy", text: "{goal}. Mind the paint this time." },
+    "m35.win": { who: "nova", mood: "happy", text: "The doors remember us. One step closer." },
+    "m36.b1": { who: "vega", mood: "neutral", text: "Old starlight is stuck here, echoing. Let's free it." },
+    "m36.b2": { who: "kestrel", mood: "smirk", text: "{goal}. I'll race you for the shiny ones." },
+    "m36.win": { who: "vega", mood: "happy", text: "Every echo you caught is a world saying thanks." },
+    "m37.b1": { who: "vega", mood: "worried", text: "We found the Silence's heart. It isn't a ship." },
+    "m37.b2": { who: "nova", mood: "neutral", text: "{goal}. Let's go see it together." },
+    "m37.win": { who: "vega", mood: "neutral", text: "The Silence is a star that went cold. It's lonely." },
+    "m38.b1": { who: "bolt", mood: "happy", text: "A golden star could warm a cold heart. Grab one!" },
+    "m38.b2": { who: "vega", mood: "neutral", text: "{goal}. Gently, pilot." },
+    "m38.win": { who: "bolt", mood: "shout", text: "Golden spark in the tank! She's never been warmer!" },
+    "m39.b1": { who: "vega", mood: "happy", text: "Every pilot in the fleet is lining up behind you." },
+    "m39.b2": { who: "kestrel", mood: "smirk", text: "{goal}. Show them how we fly, partner." },
+    "m39.win": { who: "vega", mood: "happy", text: "The whole fleet is ready. Next, we bring the dawn." },
+    "m40.b1": { who: "silence", mood: "neutral", text: "So cold. So dark. Why did you come here?" },
+    "m40.b2": { who: "vega", mood: "happy", text: "{goal}. The whole crew flies with you." },
+    "m40.b3": { who: "kestrel", mood: "shout", text: "Wings up, everyone. Nobody gets left in the dark!" },
+    "m40.win": { who: "vega", mood: "shout", text: "You did it, pilot! The Heart is shining again!" },
+    "run.crew": { who: "bolt", mood: "shout", text: "The crew's on your wing! They'll blast rocks for you." },
+    /* v46 the ending, after the finale */
+    "end.1": { who: "silence", mood: "neutral", text: "Warm. I remember warm. Thank you, little pilot." },
+    "end.2": { who: "nova", mood: "happy", text: "The Silence is glowing. It was only cold, all along." },
+    "end.3": { who: "bolt", mood: "happy", text: "I'm not crying. It's engine oil. Happy oil." },
+    "end.4": { who: "kestrel", mood: "smirk", text: "Best partner I ever had. Don't let it go to your head." },
+    "end.5": { who: "vega", mood: "happy", text: "Nobody gets left in the dark. Not even the Silence." },
     /* v33 debriefs. A win cheers; a loss is always kind and moves the story on a little */
     "win.1": { who: "vega", mood: "happy", text: "Mission complete. The galaxy's a little brighter." },
     "win.2": { who: "bolt", mood: "happy", text: "She came back shiny! Great flying." },
@@ -2459,6 +2553,8 @@ button.lk { cursor: pointer; }
     "lore.9": { who: "kestrel", mood: "smirk", text: "I crashed here plenty too, rookie. Don't tell anyone." },
     "lore.10": { who: "nova", mood: "neutral", text: "Inside the Silence it was cold. Your light felt warm." },
     "lore.11": { who: "vega", mood: "happy", text: "The Prism Rings once sang with the Heart. They will again." },
+    "lore.12": { who: "nova", mood: "neutral", text: "The Void is where old stars go to sleep." },
+    "lore.13": { who: "kestrel", mood: "happy", text: "You came back for me. I'll always fly back for you." },
     "tune.1": { who: "bolt", mood: "happy", text: "I tuned her up. One extra shield, on the house." },
     /* v34 boss entrances: the Silence speaks once before each husk; light floods back when its core breaks */
     "boss.1": { who: "silence", mood: "neutral", text: "More light? I will drink it all." },
@@ -2475,10 +2571,10 @@ button.lk { cursor: pointer; }
     "chal.lose": { who: "vega", mood: "happy", text: "What a race! One more and you've got it." }
   };
   /* Husk name plates for the boss entrance: daily runs by order, level finales by world */
-  const HUSKS = ["HUSK I", "HUSK II", "HUSK III", "HUSK IV"];
+  const HUSKS = ["HUSK I", "HUSK II", "HUSK III", "TRUE FORM"]; /* v46: the last one is the Silence itself */
   /* MISSIONS: the story campaign, keyed by level number. Each mission names its briefing and win lines from LINES.
-     The goal and the three star checks come from makeLevels, so the rules stay exactly the same. Chapter 4 comes next. */
-  const CHAPTERS = [{ n: 1, name: "First Light", from: 1, to: 10 }, { n: 2, name: "The Dark Belt", from: 11, to: 20 }, { n: 3, name: "Turning Tide", from: 21, to: 30 }];
+     The goal and the three star checks come from makeLevels, so the rules stay exactly the same. */
+  const CHAPTERS = [{ n: 1, name: "First Light", from: 1, to: 10 }, { n: 2, name: "The Dark Belt", from: 11, to: 20 }, { n: 3, name: "Turning Tide", from: 21, to: 30 }, { n: 4, name: "Dawn", from: 31, to: 40 }];
   const MISSIONS = {
     1: { title: "First Light", brief: ["m1.b1", "m1.b2"], win: "m1.win" },
     2: { title: "Catch the Spark", brief: ["m2.b1", "m2.b2"], win: "m2.win" },
@@ -2511,11 +2607,22 @@ button.lk { cursor: pointer; }
     27: { title: "Beacon Fire", brief: ["m27.b1", "lv.goal", "lv.beacon"], win: "m27.win" },
     28: { title: "Wingman", brief: ["m28.b1", "m28.b2"], win: "m28.win" },
     29: { title: "Power Up", brief: ["m29.b1", "m29.b2"], win: "m29.win" },
-    30: { title: "Husk Three", brief: ["m30.b1", "m30.b2", "m30.b3"], win: "m30.win" }
+    30: { title: "Husk Three", brief: ["m30.b1", "m30.b2", "m30.b3"], win: "m30.win" },
+    /* v46 chapter 4 */
+    31: { title: "Into the Void", brief: ["m31.b1", "m31.b2"], win: "m31.win" },
+    32: { title: "Seeds of Light", brief: ["m32.b1", "m32.b2"], win: "m32.win" },
+    33: { title: "Loud and Bright", brief: ["m33.b1", "m33.b2"], win: "m33.win" },
+    34: { title: "Whispers", brief: ["m34.b1", "m34.b2"], win: "m34.win" },
+    35: { title: "Broken Doors", brief: ["m35.b1", "m35.b2"], win: "m35.win" },
+    36: { title: "Lost Echoes", brief: ["m36.b1", "m36.b2"], win: "m36.win" },
+    37: { title: "The True Face", brief: ["m37.b1", "m37.b2"], win: "m37.win" },
+    38: { title: "One Bright Spark", brief: ["m38.b1", "m38.b2"], win: "m38.win" },
+    39: { title: "Everyone Together", brief: ["m39.b1", "m39.b2"], win: "m39.win" },
+    40: { title: "Dawn", brief: ["m40.b1", "m40.b2", "m40.b3"], win: "m40.win" }
   };
   const TYPE_TITLES = { 13: "Lifeboats", 14: "Redline Duel", 16: "Lantern Run", 18: "Lights Out", 23: "Core Heist", 27: "Beacon Fire" };
   const chapterOf = n => CHAPTERS.find(c => n >= c.from && n <= c.to) || null;
-  const LOSE_LINES = ["lose.1", "lose.2", "lose.3", "lose.4", "lose.5"], LORE_LINES = ["lore.1", "lore.2", "lore.3", "lore.4", "lore.5", "lore.6", "lore.7", "lore.8", "lore.9", "lore.10", "lore.11"];
+  const LOSE_LINES = ["lose.1", "lose.2", "lose.3", "lose.4", "lose.5"], LORE_LINES = ["lore.1", "lore.2", "lore.3", "lore.4", "lore.5", "lore.6", "lore.7", "lore.8", "lore.9", "lore.10", "lore.11", "lore.12", "lore.13"];
   /* Campaign progress: level runs that missed the goal, and how many world facts have been told. Every 10th miss earns Bolt's free tune-up. */
   save.camp = Object.assign({ fails: 0, lore: 0, tune: false }, isObj(save.camp) ? save.camp : {});
   if (!Number.isInteger(save.camp.fails) || save.camp.fails < 0) save.camp.fails = 0;
@@ -2525,6 +2632,8 @@ button.lk { cursor: pointer; }
   save.camp.seen = Array.isArray(save.camp.seen) ? save.camp.seen.filter(s => typeof s === "string").slice(0, 20) : [];
   /* v35: sectors whose "all beacons lit" moment has played (world indexes 0–3) */
   save.camp.lit = Array.isArray(save.camp.lit) ? save.camp.lit.filter(w => Number.isInteger(w) && w >= 0 && w < 4) : [];
+  /* v46: the ending has played once (it can be replayed from the Quantum Void map) */
+  save.camp.dawn = save.camp.dawn === true;
   let tuneNext = false;
   /** Pick the debrief line for a finished level run, and update campaign progress. */
   function levelDebrief(L, met, quit) {
@@ -2548,6 +2657,8 @@ button.lk { cursor: pointer; }
   }
   function paintDebrief(root) {
     root.querySelectorAll(".debrief").forEach(d => { const c = d.querySelector("canvas"), g = c.getContext("2d"); g.setTransform(2, 0, 0, 2, 0, 0); drawFace(g, d.dataset.who, d.dataset.mood, 40, false); });
+    /* v47: read the first debrief aloud when that setting is on */
+    const d0 = root.querySelector(".debrief"); if (d0 && save.set.voice) ttsSay(d0.dataset.who, d0.querySelector(".say").textContent);
   }
   const DAILY_BRIEFS = [["day.1a", "day.1b"], ["day.2a", "day.2b"], ["day.3a", "day.3b"], ["day.4a", "day.4b"], ["day.5a", "day.5b"]];
   const lineText = (id, vars) => LINES[id].text.replace(/\{(\w+)\}/g, (_, k) => vars && vars[k] != null ? vars[k] : "");
@@ -2662,10 +2773,32 @@ button.lk { cursor: pointer; }
     g.restore();
   }
 
+  /* v47 (mission plan 7): "Read lines aloud (beta)". Uses the phone's built-in speech when there is one; nothing is downloaded.
+     Pitch and rate are set per crew member. Display only: never touches window.CR. */
+  const TTS = (() => { try { return "speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function" ? window.speechSynthesis : null; } catch (e) { return null; } })();
+  let ttsLive = null;
+  function ttsStop() { ttsLive = null; if (TTS) try { TTS.cancel(); } catch (e) {} }
+  function ttsSay(who, text) {
+    ttsStop();
+    if (!TTS || !save.set.voice || !text) return;
+    try {
+      const u = new SpeechSynthesisUtterance(text), v = (CREW[who] && CREW[who].voice) || [1, 1];
+      u.pitch = v[0]; u.rate = v[1]; u.volume = 1; u.lang = "en-US";
+      const voices = TTS.getVoices ? TTS.getVoices() : [];
+      const en = voices.find(x => /^en(-|_|$)/i.test(x.lang) && x.localService) || voices.find(x => /^en/i.test(x.lang));
+      if (en) u.voice = en;
+      u.onend = u.onerror = () => { if (ttsLive === u) ttsLive = null; };
+      ttsLive = u; u.t0 = performance.now();
+      TTS.speak(u);
+    } catch (e) { ttsLive = null; }
+  }
+  /* still talking? (capped, in case a phone never reports the end) */
+  const ttsBusy = () => !!ttsLive && performance.now() - ttsLive.t0 < 7000;
+
   /* The radio window. mode "brief": big, tap to advance, auto-advances; "mini": compact, during a run, hides itself. */
   const RAD = { q: [], cur: null, mode: null, done: null, shown: 0, hold: 0, ft: 0, blipN: 0, lastMid: -1e9, mids: 0, said: new Set(), cv: null };
   /* v45: once Kestrel is guided home (Mission 27 cleared) she flies as your wingman */
-  const roleOf = who => who === "kestrel" && (save.levels[27] || 0) >= 1 ? "Wingman" : CREW[who].role;
+  const roleOf = who => who === "kestrel" && (save.levels[27] || 0) >= 1 ? "Wingman" : who === "nova" && (save.levels[20] || 0) >= 1 ? "Navigator" : CREW[who].role;
   function radioRender() {
     const el = $("#radio"), L = RAD.cur, C = CREW[L.who];
     el.className = "radio" + (RAD.mode === "mini" ? " mini" : "") + (L.who === "silence" ? " silence" : "");
@@ -2687,6 +2820,7 @@ button.lk { cursor: pointer; }
     if (!RAD.cur) { const d = RAD.done; radioStop(); if (d) d(); return; }
     RAD.shown = 0; RAD.hold = 0; RAD.blipN = 0;
     sfx.crackle(); radioRender();
+    ttsSay(RAD.cur.who, RAD.cur.text);
   }
   /** Queue lines. ids: line ids or { id, vars }. */
   function radioPlay(ids, mode, done) {
@@ -2695,7 +2829,7 @@ button.lk { cursor: pointer; }
     radioNext();
   }
   function radioStop() {
-    RAD.q = []; RAD.cur = null; RAD.done = null; RAD.mode = null;
+    RAD.q = []; RAD.cur = null; RAD.done = null; RAD.mode = null; ttsStop();
     $("#radio").hidden = true; $("#tapnext").hidden = true; stage.classList.remove("radioing");
   }
   /* Tap during a briefing: finish the line, or go to the next one. */
@@ -2718,7 +2852,7 @@ button.lk { cursor: pointer; }
     if (RAD.mode === "brief") $("#tapnext").hidden = typing;
     if (RAD.cv) { const g = RAD.cv.getContext("2d"); g.setTransform(2, 0, 0, 2, 0, 0); drawFace(g, L.who, L.mood, RAD.ft, typing); }
     const wait = RAD.mode === "brief" ? 2600 : 2400;
-    if (!typing && RAD.hold > wait) radioNext();
+    if (!typing && RAD.hold > wait && !(RAD.mode === "brief" && ttsBusy())) radioNext();
     else if (RAD.mode === "mini" && me && laneBusy(me.t + 30)) radioStop();
   }
   /* The top lane is "busy" while a comet or solar-flare warning is being drawn there, so the radio stays out of the way. */
@@ -2849,7 +2983,7 @@ button.lk { cursor: pointer; }
     if (pbLive) pbLive.roll = 0;
     tutStart();
     radioStop(); RAD.lastMid = -1e9; RAD.mids = 0; RAD.said = new Set();
-    bossCine = new Map(); lightBack = null; beaconFx = null; podFx = new Map(); raceLead = 0; fragFx = new Map(); spotFx = 0;
+    bossCine = new Map(); lightBack = null; beaconFx = null; podFx = new Map(); raceLead = 0; fragFx = new Map(); spotFx = 0; crewFx = [];
     hideOverlays(); $("#toast").hidden = true;
     state = "play"; last = performance.now(); $("#pausebtn").hidden = false; $("#paused").hidden = true;
     if (tuned) setTimeout(() => { if (state === "play") toast("Bolt's tune-up · +1 shield", true); }, 2600);
@@ -2948,8 +3082,8 @@ button.lk { cursor: pointer; }
 
   // ---------- levels UI ----------
   let curLevel = null, mapWorld = null, levelGoalToasted = false, raceLead = 0;
-  const OVERLAYS = ["#start", "#over", "#hangar", "#shop", "#levels", "#paused", "#trophies", "#settings", "#radio", "#tapnext", "#skipbrief", "#chal"];
-  function hideOverlays() { OVERLAYS.forEach(id => $(id).hidden = true); }
+  const OVERLAYS = ["#start", "#over", "#hangar", "#shop", "#levels", "#paused", "#trophies", "#settings", "#radio", "#tapnext", "#skipbrief", "#chal", "#ending"];
+  function hideOverlays() { OVERLAYS.forEach(id => $(id).hidden = true); ttsStop(); }
   const starRow = (n, max = 3) => Array.from({ length: max }, (_, i) => i < n ? "<i>★</i>" : "★").join("");
   function rankHTML(gain) {
     const need = LV.xpNeed(save.pilot), pctXP = Math.min(100, save.xp / need * 100);
@@ -3028,6 +3162,7 @@ button.lk { cursor: pointer; }
         ${L.type === "beacon" ? `<div class="next">Beacon: <b style="color:var(--gold)">golden light streams</b> snake down the sky. Every mote counts as a ★. Catch ${L.goal} in one run to light the beacon.</div>` : ""}
         ${L.type === "race" ? `<div class="next">Race: Kestrel's <b style="color:#f06ad0">pink ghost</b> flies the same course. Top right shows who's ahead. Beat her score by the finish line.</div>` : ""}
         ${L.type === "escort" ? `<div class="next">Escort: stay inside the <b style="color:var(--tide)">teal ring</b> around the Light Ship. Rocks you touch there are blocked. 3 rocks on the ship and it turns back.</div>` : ""}
+        ${L.world.crew ? `<div class="next">Final mission: <b style="color:#f06ad0">Kestrel</b>, <b style="color:#dfe4ff">Nova</b> and <b style="color:var(--tide)">Vega</b> fly beside you and blast rocks in their lanes.</div>` : ""}
         ${L.finale ? `<div class="next">Mothership boss: dodge the <b style="color:var(--hurt)">red bullets</b>, catch ${CR.BOSS_HP} <b style="color:var(--tide)">◆ cores</b> to destroy it.</div>` : ""}
         <div class="crit"><div><span class="s ${best >= 1 ? "" : "off"}">★</span>${L.type === "survive" || L.type === "finale" || L.type === "blackout" ? "Reach the finish" : L.type === "escort" ? "Bring the Light Ship to the finish" : L.type === "race" ? "Beat Kestrel to the finish" : "Complete the goal and reach the finish"}</div>
           <div><span class="s ${best >= 2 ? "" : "off"}">★</span>Score ${L.par.toLocaleString()} or more</div>
@@ -3039,6 +3174,7 @@ button.lk { cursor: pointer; }
       <div class="whead" style="--wc:${W_.color}"><h3>${W_.name}</h3><span>${open ? W_.blurb : `Collect ${W_.need - total} more ★ to open`}</span></div>
       ${flare ? debriefHTML("map.lit") : ""}
       ${map}
+      ${mapWorld === 3 && (save.levels[LV.COUNT] || 0) >= 1 ? `<button class="btn alt" id="map-dawn">▶ Watch the ending</button>` : ""}
       ${brief}
       ${rankHTML()}
       <button class="btn alt" id="lv-back">Back</button>`;
@@ -3049,6 +3185,7 @@ button.lk { cursor: pointer; }
     /* v35: open the map with the next beacon (or the chosen one) in view; the overlay scrolls, never the page */
 
     const go = $("#lv-go"); if (go) go.onclick = () => playLevel(briefN, true);
+    const md = $("#map-dawn"); if (md) md.onclick = () => openEnding(() => openLevels(3));
     previewTheme = briefN ? TH.forLevel(briefN) : null;
     $("#lv-back").onclick = () => { sfx.tap(); setup(true); showStart(); };
   }
@@ -3106,8 +3243,9 @@ button.lk { cursor: pointer; }
     o.innerHTML = `<div class="eyebrow ${res.met ? "hot" : ""}">${M ? `Chapter ${ch.n} · Mission ${n}` : `Level ${n} · ${TH.forLevel(n).name}`}</div>
       <h2>${res.met ? (gained ? "Cleared!" : "Complete") : "Not yet"}</h2>
       ${M || TYPE_TITLES[n] ? `<div class="tname" style="--wc:${LV.WORLDS[L.w].color}">${M ? M.title : TYPE_TITLES[n]}</div>` : ""}
-      ${lit ? `<div class="litline">${me.beaconLit != null ? "The beacon is lit" : "Light returned to the sector"}</div>` : ""}
+      ${lit ? `<div class="litline">${me.beaconLit != null ? "The beacon is lit" : n === LV.COUNT && res.met ? "The Heart is reborn" : "Light returned to the sector"}</div>` : ""}
       ${debriefHTML(db.id)}
+      ${n === LV.COUNT && res.met ? `<button class="btn pulse" id="over-dawn">${save.camp.dawn ? "Watch the ending" : "See the Dawn"}</button>` : ""}
       ${res.met ? `<div class="bigstars">${[0, 1, 2].map(i => `<span class="${i < res.stars ? "on" : ""}">★</span>`).join("")}</div>` : `<div class="verdict lose">${reason}</div>`}
       ${closeLine}
       <div class="panel"><div class="crit">${res.checks.map(c => `<div><span class="${c.ok ? "s" : "x"}">${c.ok ? "★" : "✕"}</span>${c.text}</div>`).join("")}</div></div>
@@ -3118,7 +3256,7 @@ button.lk { cursor: pointer; }
       ${trophyLineHTML()}
       ${rankHTML(xp)}
       ${nextGoalHTML(me)}
-      <div class="duo">${res.met && nextOk ? `<button class="btn pulse" id="lv-next">Next level</button><button class="btn alt" id="lv-retry">Retry</button>` : !res.met && save.camp.tune ? `<button class="btn pulse" id="lv-tune">Retry · +1 shield</button><button class="btn alt" id="lv-retry">Retry</button>` : `<button class="btn pulse" id="lv-retry">${res.met ? "Play again" : "Retry"}</button>`}</div>
+      <div class="duo">${res.met && nextOk ? `<button class="btn pulse" id="lv-next">Next level</button><button class="btn alt" id="lv-retry">Retry</button>` : !res.met && save.camp.tune ? `<button class="btn pulse" id="lv-tune">Retry · +1 shield</button><button class="btn alt" id="lv-retry">Retry</button>` : `<button class="btn ${n === LV.COUNT && res.met ? "alt" : "pulse"}" id="lv-retry">${res.met ? "Play again" : "Retry"}</button>`}</div>
       ${!res.met && save.camp.tune ? `<p class="fine">Bolt's tune-up: one free extra shield for your next level run. Use it now or keep it for later.</p>` : ""}
       <div class="btns"><button class="btn alt" id="lv-map">Level map</button><button class="btn alt" id="ships">Hangar</button><button class="btn alt" id="over-tro">🏆 Trophies</button></div>`;
     o.hidden = false; guardOver(o);
@@ -3131,7 +3269,8 @@ button.lk { cursor: pointer; }
     const nb = $("#lv-next"); if (nb) nb.onclick = () => playLevel(n + 1, true);
     $("#lv-map").onclick = () => openLevels(Math.floor((n - 1) / 10));
     $("#ships").onclick = () => openHangar();
-    (nb || tb || $("#lv-retry")).focus({ preventScroll: true });
+    const od = $("#over-dawn"); if (od) od.onclick = () => openEnding(backToOver);
+    (od || nb || tb || $("#lv-retry")).focus({ preventScroll: true });
   }
   function levelHud(t) {
     const L = curLevel, pr = LV.progress(L, me), left = Math.max(0, L.durT - t) / TPS;
@@ -3531,8 +3670,9 @@ button.lk { cursor: pointer; }
     { k: "motion", name: "Calm effects", desc: "Less screen shake, softer flashes, no glitch slices. Auto follows your phone's reduce-motion setting.", opts: [["auto", "Auto"], ["on", "On"], ["off", "Off"]] },
     { k: "gfx", name: "Graphics", desc: "Low draws one background layer, fewer sparks and a lighter resolution. Smoother on older phones.", opts: [["high", "High"], ["low", "Low"]] },
     { k: "music", name: "Music", desc: "The soundtrack.", opts: [[true, "On"], [false, "Off"]] },
-    { k: "sfx", name: "Sound FX", desc: "Stars, hits and alarms.", opts: [[true, "On"], [false, "Off"]] }
-  ];
+    { k: "sfx", name: "Sound FX", desc: "Stars, hits and alarms.", opts: [[true, "On"], [false, "Off"]] },
+    { k: "voice", name: "Read lines aloud (beta)", desc: "Your phone speaks the crew's radio lines, each in their own voice. Uses your phone's built-in speech.", opts: [[true, "On"], [false, "Off"]], needs: () => !!TTS }
+  ].filter(S => !S.needs || S.needs());
   const setGet = k => k === "music" ? !save.musicOff : k === "sfx" ? !save.muted : save.set[k];
   let settingsBack = null;
   function openSettings(back) {
@@ -3556,10 +3696,11 @@ button.lk { cursor: pointer; }
       else { save.set[k] = v; persist(); sfx.tap(); }
       if (k === "haptics" && v) vibrate(40);
       if (k === "gfx") resize();
+      if (k === "voice") { if (v) ttsSay("vega", lineText("voice.check")); else ttsStop(); }
       renderSettings();
       const nb = o.querySelector(`[data-sk="${k}"][data-sv="${raw}"]`); if (nb) nb.focus({ preventScroll: true });
     });
-    $("#set-done").onclick = () => { sfx.tap(); o.hidden = true; (settingsBack || showStart)(); };
+    $("#set-done").onclick = () => { sfx.tap(); ttsStop(); o.hidden = true; (settingsBack || showStart)(); };
     drawGapDemo();
   }
   /* Little picture of a thumb and the ship above it, so the gap and thumb side are easy to judge. */
@@ -3706,6 +3847,8 @@ button.lk { cursor: pointer; }
       }
       if (e.type === "star" && e.mote && curLevel && curLevel.type === "beacon" && me.stars === Math.floor(curLevel.goal / 2)) radioSay("run.beaconHalf", true);
       if (e.type === "escLost") { escLostAt = performance.now(); sfx.feverOut(); toast("The Light Ship turned back"); }
+      /* v46 finale: a wingman's beam breaks a rock in its lane */
+      if (e.type === "crewShot") { crewFx.push({ k: e.k, x: e.x, y: e.y, cx: e.cx, cy: e.cy, at: me.t }); const a = rockAt(e.x, e.y, me.t, true); if (a) shatter(a, me.t, 1.2); else burst(e.x, e.y, CREW[CREW_FLY[e.k]].color, 12); tone(1250, .07, "square", .025, -800); }
       if (e.type === "smash") { const a = rockAt(e.x, e.y, me.t, true); if (a) shatter(a, me.t, 1.6); else burst(e.x, e.y, "#ff7a3d", 14); }
       if (e.type === "hit") {
         burst(me.x, me.y, "#ff7a3d", 18); shake = 14; flash = { c: "255,79,98", a: .45 }; sfx.hit(); vibrate(60);
@@ -3752,6 +3895,7 @@ button.lk { cursor: pointer; }
       sfx.siren(); sfx.rumble(); vibrate([40, 60, 40]); $("#toast").hidden = true; radioStop();
       if (full) { RAD.lastMid = -1e9; RAD.said.delete("boss." + (bossIdx(i) + 1)); radioPlay(["boss." + (bossIdx(i) + 1)], "mini"); RAD.lastMid = me.t; }
     });
+    if (world.crew && me.t === world.crew.from + TPS && me.alive) { RAD.lastMid = -1e9; radioSay("run.crew", true); }
     if (world.heist && me.t === world.heist.from && me.alive) { toast("SEARCHLIGHT · stay out of the red light"); sfx.alarm(); vibrate([20, 40, 20]); RAD.lastMid = -1e9; radioSay("run.lightOn", true); }
     if (world.blackout && me.t === world.blackout.from && me.alive) { tone(520, .9, "sawtooth", .07, -440); noiseBurst(.5, .05, 600); vibrate([30, 40, 30]); RAD.lastMid = -1e9; radioSay("run.dark", true); }
     if (curLevel && curLevel.durT >= TPS * 24 && me.t === Math.floor(curLevel.durT / 2)) radioSay(curLevel.type === "escort" ? "run.escHalf" : "run.half", true);
@@ -3847,7 +3991,8 @@ button.lk { cursor: pointer; }
     { id: "night", icon: "◑", name: "Night Flyer", desc: "Fly a Blackout Run to the finish", coins: 30, goal: 1, of: () => save.rec.blackouts },
     { id: "outpace", icon: "»", name: "Outpaced", desc: "Win a race against Kestrel", coins: 30, goal: 1, of: () => save.rec.races },
     { id: "heist", icon: "◇", name: "Shadow Runner", desc: "Pull off a Heist mission", coins: 30, goal: 1, of: () => save.rec.heists },
-    { id: "beacon", icon: "✧", name: "Lighthouse", desc: "Light a beacon with 50 stars", coins: 30, goal: 1, of: () => save.rec.beacons }
+    { id: "beacon", icon: "✧", name: "Lighthouse", desc: "Light a beacon with 50 stars", coins: 30, goal: 1, of: () => save.rec.beacons },
+    { id: "dawn", icon: "✺", name: "Dawnbringer", desc: "Finish the story: clear Mission 40, \"Dawn\"", coins: 60, goal: 1, of: () => (save.levels[LV.COUNT] || 0) >= 1 ? 1 : 0 }
   ];
   const trophyCount = () => TROPHIES.filter(t => save.ach[t.id]).length;
   function trophyCheck(r, live) {
@@ -3998,6 +4143,49 @@ button.lk { cursor: pointer; }
     return `<div class="nextgoal"><div class="ng"><small>Next goal</small><span>${g.text}</span></div><div class="bar"><i style="width:${Math.round(g.f * 100)}%"></i></div></div>`;
   }
   function backToOver() { state = "over"; $("#over").hidden = false; }
+  /* ---------- THE ENDING (v46, mission plan 6; display only) ----------
+     The Heart is reborn, every sector lights up, the crew says goodbye, then the credits roll over the beacon map.
+     Calm effects (or reduce motion) shows it all as a still page you can scroll. */
+  const ENDING_LINES = ["end.1", "end.2", "end.3", "end.4", "end.5"];
+  const CREDITS = [["Meteor Pilot", "The Last Light"], ["Starring", "You, pilot"], ["Commander Vega", "who believed in you from day one"], ["Bolt", "mechanic, cook, menace"],
+    ["Kestrel", "the best wingman in the galaxy"], ["Nova", "your guide through the dark"], ["The Silence", "who only needed a little light"], ["The Lightrunners", "every pilot who ever caught a star"]];
+  let endAnims = [];
+  function openEnding(back) {
+    audio(); sfx.boom(); setTimeout(() => sfx.best(), 900); vibrate([40, 30, 80]);
+    state = "menu"; hideOverlays(); radioStop(); $("#toast").hidden = true;
+    if (!save.camp.dawn) { save.camp.dawn = true; persist(); }
+    const o = $("#ending");
+    o.classList.toggle("calm", calm());
+    o.innerHTML = `<div class="endroll" id="endroll">
+        <div class="endmap" inert aria-hidden="true">${beaconMapHTML(3, null, null, true)}</div>
+        <div class="endscrim"></div>
+        <div class="roll" id="endroll-in">
+          <div class="heart" aria-hidden="true"></div>
+          <div class="eyebrow hot">The Heart is reborn</div>
+          <h2>Dawn</h2>
+          <div class="quick">Light is pouring back into every sector of the galaxy.</div>
+          <div class="esecs">${LV.WORLDS.map((wd, i) => `<span class="esec" style="--wc:${wd.color};--d:${(1.4 + i * .5).toFixed(1)}s">${wd.name}</span>`).join("")}</div>
+          ${ENDING_LINES.map(id => debriefHTML(id)).join("")}
+          <div class="credits">${CREDITS.map(([a, b]) => `<div><b>${a}</b><span>${b}</span></div>`).join("")}</div>
+          <div class="eyebrow hot">Thank you for playing</div>
+          <div class="quick">Every beacon stays open. Go back for 3 stars on each one.</div>
+        </div>
+      </div>
+      <div class="endbar"><button class="btn alt" id="end-skip">Skip</button><button class="btn" id="end-done">Continue</button></div>`;
+    o.hidden = false; paintDebrief(o);
+    endAnims.forEach(a => { try { a.cancel(); } catch (e) {} }); endAnims = [];
+    const box = $("#endroll"), roll = $("#endroll-in"), mp = o.querySelector(".endmap"), skip = $("#end-skip");
+    const h = box.clientHeight, rh = roll.scrollHeight, mh = mp.scrollHeight;
+    if (!calm() && roll.animate && rh > h) {
+      const dur = Math.max(26000, rh * 24);
+      endAnims.push(roll.animate([{ transform: "translateY(0)" }, { offset: .1, transform: "translateY(0)" }, { transform: `translateY(${-(rh - h)}px)` }], { duration: dur, fill: "forwards", easing: "linear" }));
+      if (mh > h) endAnims.push(mp.animate([{ transform: `translateY(${-(mh - h)}px)` }, { transform: "translateY(0)" }], { duration: dur, fill: "forwards", easing: "ease-in-out" }));
+      endAnims[0].onfinish = () => { if (skip) skip.hidden = true; };
+    } else { box.style.overflowY = "auto"; roll.style.position = "relative"; skip.hidden = true; }
+    skip.onclick = () => { sfx.tap(); endAnims.forEach(a => { try { a.finish(); } catch (e) {} }); skip.hidden = true; $("#end-done").focus({ preventScroll: true }); };
+    $("#end-done").onclick = () => { sfx.tap(); endAnims.forEach(a => { try { a.cancel(); } catch (e) {} }); endAnims = []; o.hidden = true; (back || showStart)(); };
+    $("#end-done").focus({ preventScroll: true });
+  }
   function gameOver() {
     if (state === "over") return; /* v31 (QA 6): never pay out a run twice */
     if (curLevel) return finishLevel(false);
@@ -4552,6 +4740,43 @@ button.lk { cursor: pointer; }
     ctx.restore();
     if (hurt && kill == null && state === "play" && Math.random() < 0.35) particles.push({ x: p.x + (Math.random() - .5) * 90, y: p.y + 8, vx: (Math.random() - .5) * .5, vy: -.6 - Math.random() * .6, life: 22 + Math.random() * 16, color: Math.random() < .4 ? "#ff7a3d" : "#5a628f", s: 3 + Math.random() * 3 });
   }
+  /* ---------- CREW WINGMEN (v46, the finale; display only, their paths and shots live in window.CR) ----------
+     Kestrel, Nova and Vega fly as translucent ships in their own colors. A shot is a short bright beam from the wingman
+     to the rock it breaks. Names show for the first few seconds so you know who's who. */
+  const CREW_FLY = ["kestrel", "nova", "vega"];
+  let crewFx = [];
+  /* Each wingman is drawn once per banking step into a small canvas, so three crew ships cost three drawImage calls a frame */
+  const crewArt = new Map();
+  function crewSprite(k, rb) {
+    const key = k + ":" + rb; if (crewArt.has(key)) return crewArt.get(key);
+    const c = document.createElement("canvas"); c.width = c.height = 240; const g = c.getContext("2d"); g.scale(3, 3);
+    const col = CREW[CREW_FLY[k]].color;
+    SHIP3D.draw(g, 40, 40, { body: col, flame: col, model: "fighter", alpha: 1, t: 10, scale: .85, roll: rb * .3, thrust: true, lights: true });
+    crewArt.set(key, c); return c;
+  }
+  function drawCrew(t) {
+    const C = world.crew; if (!C || !me || t < C.from - 40 || t >= C.until) return;
+    const k0 = Math.min(1, (t - C.from + 40) / 40);
+    for (let k = 0; k < CR.CREW_N; k++) {
+      const p = CR.crewAt(k, t), q = CR.crewAt(k, t - 1), col = CREW[CREW_FLY[k]].color;
+      const y = p.y + (1 - k0) * 120;
+      const rb = Math.max(-2, Math.min(2, Math.round((p.x - q.x) * .25 / .3))); /* banking, in 5 cached steps */
+      ctx.save(); ctx.globalAlpha = .55 * k0; ctx.drawImage(crewSprite(k, rb), p.x - 40, y - 40, 80, 80); ctx.restore();
+      if (t - C.from < 300) { ctx.save(); ctx.globalAlpha = .85 * k0 * Math.min(1, (300 - (t - C.from)) / 40); ctx.fillStyle = col; ctx.font = "700 11px 'Chakra Petch', sans-serif"; ctx.textAlign = "center"; ctx.fillText(CREW[CREW_FLY[k]].name.toUpperCase(), p.x, y + 30); ctx.restore(); }
+    }
+    if (crewFx.length) {
+      ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round";
+      for (const f of crewFx) {
+        const d = t - f.at; if (d < 0 || d > 12) continue;
+        const a = 1 - d / 12, col = CREW[CREW_FLY[f.k]].color;
+        ctx.globalAlpha = a; ctx.strokeStyle = col; ctx.lineWidth = 4 * a + 1;
+        ctx.beginPath(); ctx.moveTo(f.cx, f.cy - 14); ctx.lineTo(f.x, f.y); ctx.stroke();
+        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.2; ctx.stroke();
+      }
+      ctx.restore();
+      crewFx = crewFx.filter(f => t - f.at <= 12 && t >= f.at);
+    }
+  }
   /* ---------- LIGHT SHIP (v38 escort; display only, its path and hit points live in window.CR) ----------
      A small teal lantern barge with a white lamp dome. Its three hull lights are its hit points. The dashed ring is the
      link: inside it your ship wears a teal shield bubble and blocks rocks. When it turns back it rises and fades, safe. */
@@ -5045,9 +5270,10 @@ button.lk { cursor: pointer; }
       const ba = CR.bossActive(world, me, t);
       drawCores(ba.cores, t); shots = ba.shots;
     }
-    if (playing) { drawEscort(t); drawRescue(t); drawFrags(t); drawMotes(t); }
+    if (playing) { drawEscort(t); drawRescue(t); drawFrags(t); drawMotes(t); drawCrew(t); }
     if (playing) {
-      if (t < ghost.path.length - 1) {
+      if (world.crew) { /* v46: on the finale your crew flies with you, so the practice ghost stays home */ }
+      else if (t < ghost.path.length - 1) {
         ghostRoll += (Math.max(-0.7, Math.min(0.7, (ghost.path[t] - (ghost.path[t - 1] ?? ghost.path[t])) * 0.18)) - ghostRoll) * 0.2;
         const gy = ghost.ys ? ghost.ys[t] : SHIP_Y; /* v37: a friend's ghost flies their real path, up and down too */
         drawShip(ghost.path[t], gy, ghost.col || "#4fe0cf", ghost.col || "#4fe0cf", ghost.race ? 0.5 : 0.4, false, t, 1, ghostRoll, ghost.model);
