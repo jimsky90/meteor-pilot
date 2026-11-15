@@ -13,3 +13,11 @@ The owner turned the setting on and hears no voices. Fix in `ttsSay` / `ttsStop`
 7. Test with Playwright by stubbing `window.speechSynthesis` to record calls. Confirm that the toggle tap, the radio check and each briefing line call `speak()` with text, and that `speak()` never directly follows `cancel()` without the delay.
 
 In the round's message, tell the owner how to test it: Settings > Read lines aloud > radio check. Then mark it done in AUDIT-PROGRESS.md.
+
+### The owner's phone is an iPhone (Safari / home-screen app). iPhone specifics for this fix
+- iOS only allows speech that starts inside a `click` or `touchend` handler. A `pointerdown` handler doesn't count. Do the unlock `speak()` (a short line, or a single space at volume 0.01 if nothing should be heard) inside the click handler of the toggle, the radio check and the Play/Launch buttons.
+- iOS often drops the next `speak()` after `cancel()`. Avoid `cancel()` between lines; let a line finish, or queue the next one in `onend`. Cancel only when the player skips.
+- The game's Web Audio music shares the audio session. If speech is still silent with music playing, briefly duck the music gain during speech instead of suspending the AudioContext.
+- Don't filter voices by `localService` on iOS. Prefer `lang` starting with "en", else no `u.voice` at all (the system default works).
+- Hint text for iPhone users in the radio check: "No sound? Turn off silent mode (switch on the side), turn up the volume, and check Settings > Accessibility > Spoken Content > Voices has an English voice."
+- Test the iOS path in Playwright with WebKit (`p.webkit.launch()`) and a stubbed `speechSynthesis` as well as Chromium.
