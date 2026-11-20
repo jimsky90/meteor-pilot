@@ -1186,6 +1186,7 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 53, date: "2026-11-20", notes: ["Sparks, explosions and engine trails now glow with real light instead of flat specks", "Stars shine with a soft bloom, and phones draw them faster than before", "The camera leans gently as you bank, so the sky swings with your turns", "Boss entrances shake and swoop the view as the husk arrives. Calm effects keeps it all still"] },
     { v: 52, date: "2026-11-19", notes: ["Meteors are now real 3D rocks drawn by your phone's graphics chip: lumpy shapes, deep craters and gritty surfaces", "They tumble more smoothly as they fall, and the underside glows hot from the entry fire", "Rocks are a bit brighter with a warm rim of light, so they stand out on every world", "Phones without 3D support keep the classic rocks"] },
     { v: 51, date: "2026-11-18", notes: ["Your ship got a real 3D upgrade: it's now drawn by your phone's graphics chip, with shiny metal, a glass canopy and a cool rim of light", "Light glides across the hull as you bank into turns, and the canopy catches the sky", "Every ship and paint gets the new look, in runs, briefings and the Hangar", "Low graphics, and phones without 3D support, keep the classic look"] },
     { v: 50, date: "2026-11-17", notes: ["Runs now pay coins for time flown too: 1 extra coin for every 15 seconds, on top of your stars", "Fresh Fuel: your first 5 runs each day pay double coins", "Runs pay up to 500 coins a day; missions, XP and trophies always count. It refills tomorrow"] },
@@ -1196,8 +1197,7 @@ button.lk { cursor: pointer; }
     { v: 45, date: "2026-11-13", notes: ["Chapter 3, \"Turning Tide\": levels 21 to 30 are now story missions with their own names, briefings and win scenes", "Nova flies with the crew now, and knows her way around the Prism Rings", "Kestrel vanishes into the Silence. Light the beacon in Mission 27 to guide her home", "Kestrel joins your crew as your wingman, then face Husk III together"] },
     { v: 44, date: "2026-11-12", notes: ["Chapter 2, \"The Dark Belt\": levels 11 to 20 are now story missions with their own names, crew briefings and win scenes", "A faint signal is coming from inside the Silence. Follow it all the way to Mission 20", "Break Husk II and meet Nova, a lost pilot with her own radio portrait", "Three new crew stories can turn up after a missed goal, kind as always"] },
     { v: 43, date: "2026-11-12", notes: ["New mission type: Light the Beacon! Golden light streams snake down the sky", "Every light mote counts as a star, so ride a stream to build your combo and Fever", "Catch 50 stars in one run and the beacon blazes up from your ship, +300", "Try it in Level 27, \"Beacon Fire\", and earn the new Lighthouse trophy"] },
-    { v: 42, date: "2026-11-12", notes: ["New mission type: Heist! Steal glowing core fragments right out from under the Silence", "Its red searchlight sweeps the sky. Get spotted and it costs a shield, but never your run", "Fragments drift down marked paths, +100 each. Grab 4 of the 6", "Try it in Level 23, \"Core Heist\", and earn the new Shadow Runner trophy"] },
-    { v: 41, date: "2026-11-12", notes: ["New mission type: Race the Rival! Kestrel's pink ghost flies the same course as you", "Beat her score by the finish line. The top bar shows live who's ahead", "Kestrel calls it out over the radio every time the lead changes hands", "Try it in Level 14, \"Redline Duel\", and earn the new Outpaced trophy"] }
+    { v: 42, date: "2026-11-12", notes: ["New mission type: Heist! Steal glowing core fragments right out from under the Silence", "Its red searchlight sweeps the sky. Get spotted and it costs a shield, but never your run", "Fragments drift down marked paths, +100 each. Grab 4 of the 6", "Try it in Level 23, \"Core Heist\", and earn the new Shadow Runner trophy"] }
   ];
   const DAILY = CR.missions(day); /* v33: the day's three missions (MISSIONS is now the story campaign table) */
   /* ---------- LEVELS + PILOT RANK (app-side; uses window.CR but never changes it) ---------- */
@@ -3915,8 +3915,34 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
   function fxDrawRings(g, list) {
     for (const r of list) { g.strokeStyle = `rgba(${r.c || "255,255,255"},${Math.max(0, 1 - r.r / r.max)})`; g.lineWidth = r.w || 3; g.beginPath(); g.arc(r.x, r.y, Math.max(0, r.r), 0, 6.28); g.stroke(); }
   }
+  /* v53 (mission plan 8, 3D-c): soft glow sprites, made once per color (no shadowBlur in the loop). High graphics draws
+     sparks as additive light that fades and shrinks as it cools; Low graphics keeps the plain squares. */
+  const glowSprites = new Map();
+  function glowSprite(color) {
+    let c = glowSprites.get(color); if (c) return c;
+    if (typeof color !== "string" || !/^#[0-9a-f]{6}$/i.test(color)) return null;
+    const rgb = rgbOf(color);
+    c = document.createElement("canvas"); c.width = c.height = 32;
+    const g = c.getContext("2d"), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(.18, `rgba(${rgb},1)`); gr.addColorStop(.45, `rgba(${rgb},.42)`); gr.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+    if (glowSprites.size > 80) glowSprites.clear();
+    glowSprites.set(color, c); return c;
+  }
   function fxDrawParticles(g, list) {
+    if (!lowGfx() && list.length) {
+      const prev = g.globalCompositeOperation; g.globalCompositeOperation = "lighter";
+      for (const p of list) {
+        const spr = p.hue == null && !p.tri && glowSprite(p.color);
+        if (!spr) continue;
+        const k = Math.max(0, Math.min(1, p.life / 50)), s = (p.s || 3) * (2.2 + 1.6 * k);
+        g.globalAlpha = Math.min(1, k * 1.25);
+        g.drawImage(spr, p.x - s / 2, p.y - s / 2, s, s);
+      }
+      g.globalCompositeOperation = prev; g.globalAlpha = 1;
+    }
     for (const p of list) {
+      if (!lowGfx() && p.hue == null && !p.tri && glowSprite(p.color)) continue;
       const s = p.s || 3; g.globalAlpha = Math.max(0, Math.min(1, p.life / 50));
       g.fillStyle = p.hue != null ? `hsl(${(p.hue + p.life * 8) % 360},95%,65%)` : p.color;
       if (p.tri) { g.save(); g.translate(p.x, p.y); g.rotate(p.life * .25); g.beginPath(); g.moveTo(0, -s); g.lineTo(s * .8, s * .6); g.lineTo(-s * .8, s * .6); g.closePath(); g.fill(); g.restore(); }
@@ -4176,6 +4202,8 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
     for (const p of trail) p.y += 3 + me.t / 1800;
     trail.push({ x: me.x, y: me.y + 12 }); if (trail.length > 18) trail.shift();
     if (save.trail === "sparks" && me.t % 2 === 0) particles.push({ x: me.x + (Math.random() - .5) * 8, y: me.y + 14, vx: (Math.random() - .5) * 1.2, vy: 2 + Math.random() * 2, life: 18 + Math.random() * 10, color: Math.random() < .5 ? "#ffcc4d" : "#ff7a3d" });
+    /* v53 (3D-c): a faint glowing exhaust trail from the engines (display only; off in Low graphics) */
+    if (!lowGfx() && me.alive && me.t % 3 === 0) { const fl = shipLook().flame; particles.push({ x: me.x + (Math.random() - .5) * 6, y: me.y + 15, vx: (Math.random() - .5) * .4, vy: 2.2 + Math.random(), life: 14 + Math.random() * 6, color: fl[0] === "#" ? fl : "#ff7a3d", s: 2.4 }); }
     let feverNow = false;
     for (const e of ev) {
       /* v36 (fun plan 2): Fever starts at ×5 and ends on a hit or when the bar runs out */
@@ -4270,6 +4298,8 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
       sfx.siren(); sfx.rumble(); vibrate([40, 60, 40]); $("#toast").hidden = true; radioStop();
       if (full) { RAD.lastMid = -1e9; RAD.said.delete("boss." + (bossIdx(i) + 1)); radioPlay(["boss." + (bossIdx(i) + 1)], "mini"); RAD.lastMid = me.t; }
     });
+    /* v53 (3D-c): a low rumble shakes the view while a husk closes in (gentle, under the close-call cap; still in Calm effects) */
+    if (world.bosses && me.alive && !calm()) for (const b of world.bosses) { const p = me.t - (b.t0 - ENT_LEAD); if (p >= 0 && p < ENT_LEAD) shake = Math.max(shake, 1 + 1.8 * p / ENT_LEAD); }
     if (world.crew && me.t === world.crew.from + TPS && me.alive) { RAD.lastMid = -1e9; radioSay("run.crew", true); }
     if (world.heist && me.t === world.heist.from && me.alive) { toast("SEARCHLIGHT · stay out of the red light"); sfx.alarm(); vibrate([20, 40, 20]); RAD.lastMid = -1e9; radioSay("run.lightOn", true); }
     if (world.blackout && me.t === world.blackout.from && me.alive) { tone(520, .9, "sawtooth", .07, -440); noiseBurst(.5, .05, 600); vibrate([30, 40, 30]); RAD.lastMid = -1e9; radioSay("run.dark", true); }
@@ -4922,14 +4952,30 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
     }
     ctx.restore();
   }
+  /* v53 (3D-c): star bloom. One cached gold glow sprite (2.2× the star's radius, the art budget) drawn as light behind each
+     star, replacing the per-star shadowBlur, so stars glow brighter and cost less to draw */
+  const bloomArt = {};
+  function bloomSprite(gold) {
+    const key = gold ? "g" : "s"; if (bloomArt[key]) return bloomArt[key];
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const g = c.getContext("2d"), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    if (gold) { gr.addColorStop(0, "rgba(255,255,255,.95)"); gr.addColorStop(.3, "rgba(255,236,170,.6)"); gr.addColorStop(.65, "rgba(255,204,77,.22)"); }
+    else { gr.addColorStop(0, "rgba(255,240,190,.9)"); gr.addColorStop(.3, "rgba(255,214,110,.5)"); gr.addColorStop(.65, "rgba(255,204,77,.16)"); }
+    gr.addColorStop(1, "rgba(255,204,77,0)");
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    return (bloomArt[key] = c);
+  }
   function drawStar(x, y, r, t, gold) {
     const p = (gold ? 1.5 : 1) + Math.sin(t * 0.15) * 0.12;
+    const br = r * 2.2 * (calm() ? 1 : 0.92 + 0.08 * Math.sin(t * 0.15 + x * 0.05));
+    ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.drawImage(bloomSprite(gold), x - br, y - br, br * 2, br * 2); ctx.restore();
     ctx.save(); ctx.translate(x, y); ctx.rotate(t * (gold ? 0.06 : 0.02)); ctx.scale(p, p);
     if (gold) { ctx.strokeStyle = `hsla(${(t * 6) % 360},90%,70%,.8)`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r * 1.5, 0, 6.28); ctx.stroke(); }
-    ctx.shadowColor = gold ? "#ffffff" : "#ffcc4d"; ctx.shadowBlur = gold ? 30 : 18; ctx.fillStyle = gold ? "#fff6d6" : "#ffe08a";
+    ctx.fillStyle = gold ? "#fff6d6" : "#ffe08a";
     ctx.beginPath();
     for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
-    ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.beginPath(); ctx.arc(0, 0, r * .22, 0, 6.283); ctx.fill(); ctx.restore();
   }
   function drawPower(a, t) {
     const P = POWER[a.it.power], r = a.it.r * (1 + Math.sin(t * 0.12) * 0.08);
@@ -5598,12 +5644,28 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
     ctx.restore();
   }
 
+  /* v53 (mission plan 8, 3D-c): camera lean and boss swoop for the background layer. null = no camera move (menus, Calm effects) */
+  let camLean = 0, camSlide = 0, camZoom = 1, camNow = null;
+  function camera(t, playing) {
+    const live = playing && me && !calm() && state !== "over";
+    camLean += ((live && me.alive ? -shipRoll * 0.034 : 0) - camLean) * 0.08;
+    camSlide += ((live && me.alive ? -(me.x - W / 2) * 0.028 : 0) - camSlide) * 0.08;
+    camZoom += ((live ? 1.08 : 1) - camZoom) * 0.08;
+    let z = camZoom, y = 0;
+    if (live && world.bosses) for (const b of world.bosses) {
+      const p = t - (b.t0 - ENT_LEAD), L = ENT_LEAD + ENT_TAIL;
+      if (p >= 0 && p < L) { const q = Math.sin(Math.PI * p / L); z += 0.07 * q; y += 16 * q; }
+    }
+    if (Math.abs(camLean) < 1e-4 && Math.abs(camSlide) < 0.02 && z < 1.0005) { camZoom = 1; return null; }
+    return { a: camLean, x: camSlide, y, z };
+  }
   function draw() {
     const sx = cv.width / W, sy = cv.height / H;
     ctx.setTransform(sx, 0, 0, sy, 0, 0);
     const playing = state === "play" || state === "dying" || state === "over" || state === "paused" || state === "countdown";
     const t = me && playing ? me.t : 0;
     if (state !== "play" && state !== "dying" && state !== "countdown") warmShips();
+    camNow = null;
     const bgDark = me && world && world.blackout && (state === "play" || state === "dying" || state === "paused" || state === "countdown") && CR.blackoutAt(world, me.t) >= 1 && !(me.t - world.blackout.from < 40);
     if (bgDark) {
       /* v40: in full blackout the scenery is hidden anyway, so only paint it inside the lamp */
@@ -5611,8 +5673,15 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
       ctx.fillStyle = "#04050d"; ctx.fillRect(0, 0, W, H);
       ctx.save(); ctx.beginPath(); ctx.rect(me.x - Rl, me.y - Rl, Rl * 2, Rl * 2); ctx.clip();
       TH.drawBackground(ctx, bgT, theme, lowGfx(), feverWarm()); ctx.restore();
-    } else if (theme) TH.drawBackground(ctx, bgT, theme, lowGfx(), feverWarm());
-    else { ctx.fillStyle = "#070a1a"; ctx.fillRect(0, 0, W, H); }
+    } else if (theme) {
+      /* v53 (3D-c): the camera. The sky leans and slides a little as you bank, and swoops during a boss entrance.
+         Only the background moves, so every hazard stays exactly where it hits. Overscanned so no edge shows. */
+      const cam = camera(t, playing);
+      camNow = cam; /* the lean itself turns the near star dust below; rotating the whole sky costs too much on older phones */
+      if (cam) { ctx.save(); ctx.translate(W / 2 + cam.x, H / 2 + cam.y); ctx.scale(cam.z, cam.z); ctx.translate(-W / 2, -H / 2); }
+      TH.drawBackground(ctx, bgT, theme, lowGfx(), feverWarm());
+      if (cam) ctx.restore();
+    } else { ctx.fillStyle = "#070a1a"; ctx.fillRect(0, 0, W, H); }
     if (playing && world) {
       const ev = world.events.find(e => t >= e.t - 20 && t < e.t + e.dur && !CR.eventHidden(world, e));
       if (ev) {
@@ -5626,11 +5695,13 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
     if (shake > 0) { const sk = calm() ? shake * 0.2 : shake; ctx.translate((Math.random() - .5) * sk, (Math.random() - .5) * sk); }
     const speed = state === "play" ? 1 + t / 1800 : 0.4;
     bgT += speed;
+    const cd = camNow && !bgDark; if (cd) { ctx.save(); ctx.translate(W / 2, H * .6); ctx.rotate(camNow.a * 2.2); ctx.translate(-W / 2, -H * .6); }
     for (const d of DUST) {
       const y = (d.y + bgT * d.z * 1.6) % H;
       ctx.fillStyle = `rgba(238,240,255,${0.15 + d.z * 0.4})`;
-      ctx.fillRect(d.x, y, d.z * 1.6, d.z * 1.6 + (state === "play" ? d.z * 3 : 0));
+      ctx.fillRect(d.x + (cd ? camNow.x * d.z * 2 : 0), y, d.z * 1.6, d.z * 1.6 + (state === "play" ? d.z * 3 : 0));
     }
+    if (cd) ctx.restore();
     if (!world) return;
     /* v32: the briefing shows your ship idling on the pad; LAUNCH lights the engines */
     if (state === "brief" || state === "launch") {
@@ -5805,7 +5876,7 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
     if (!frozen) stepChunks();
     for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vx *= .96; p.vy = p.vy * .96 + (p.g || 0); p.life--; }
     particles = particles.filter(p => p.life > 0);
-    { const cap = lowGfx() ? 140 : 700; if (particles.length > cap) particles.splice(0, particles.length - cap); }
+    { const cap = lowGfx() ? 120 : 300; /* v53: the art budget (300, low 120) */ if (particles.length > cap) particles.splice(0, particles.length - cap); }
     for (const f of floaters) f.t++;
     floaters = floaters.filter(f => f.t < 45);
     for (const g of rings) g.r += g.v || 7;

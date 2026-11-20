@@ -24,3 +24,4 @@ Items from `docs/EXPERT-AUDIT-v25.md` that are done, by version. The update task
 - **v50** (2026-11-17): Economy 2 (run coins for time flown, Fresh Fuel, 500/day run-coin cap).
 - **v51** (2026-11-18): Mission 8 / 3D-a (WebGL ship).
 - **v52** (2026-11-19): Mission 8 / 3D-b (WebGL meteors).
+- **v53** (2026-11-20): Mission 8 / 3D-c (glowing particles and trails, star bloom, camera lean, boss-entrance camera shake).
