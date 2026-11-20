@@ -19,3 +19,8 @@ Items from `docs/EXPERT-AUDIT-v25.md` that are done, by version. The update task
 - **v45** (2026-11-13): Mission 6 part 2 (Chapter 3 "Turning Tide" story missions; Kestrel joins as wingman).
 - **v46** (2026-11-14): Mission 6 part 3 (Chapter 4 "Dawn" story missions, crew-assisted finale, credits, Dawnbringer trophy).
 - **v47** (2026-11-15): Mission 7 (Read lines aloud (beta) setting with per-character voices).
+- **v48** (2026-11-15): Urgent 1 (read-aloud fixed for iPhone and Android, radio check with tips, music ducks under speech).
+- **v49** (2026-11-16): Economy 1 (rank rework).
+- **v50** (2026-11-17): Economy 2 (run coins for time flown, Fresh Fuel, 500/day run-coin cap).
+- **v51** (2026-11-18): Mission 8 / 3D-a (WebGL ship).
+- **v52** (2026-11-19): Mission 8 / 3D-b (WebGL meteors).

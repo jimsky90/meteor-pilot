@@ -102,6 +102,8 @@ canvas { display: block; width: 100%; height: 100%; }
 .stats { display: grid; grid-template-columns: repeat(4, auto); gap: 4px 16px; justify-content: center; font-variant-numeric: tabular-nums; }
 .stats div { display: grid; } .stats b { font-family: var(--f-display); font-size: 1.15rem; } .stats span { font-size: .7rem; color: var(--muted); }
 .earn { font-family: var(--f-display); color: var(--gold); font-weight: 700; }
+/* v50: Fresh Fuel line under the coins earned */
+.fuel { flex: none; font-family: var(--f-display); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; color: var(--tide); border: 1px solid rgba(79,224,207,.5); border-radius: 99px; padding: 3px 10px; }
 .bar { height: 6px; border-radius: 99px; background: rgba(39,48,97,.8); overflow: hidden; }
 .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ember), var(--gold)); border-radius: 99px; }
 .next { font-size: .8rem; color: var(--muted); }
@@ -370,6 +372,9 @@ button.lk { cursor: pointer; }
 .seg button { font-family: var(--f-display); font-weight: 700; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; padding: 8px 2px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
 .seg button.on { background: var(--gold); color: var(--space); }
 .seg button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.vcheck { justify-self: start; min-height: 40px; }
+.vhint { font-size: 13px !important; line-height: 1.35; color: var(--ink) !important; border: 1px dashed var(--tide); border-radius: 10px; padding: 8px 10px !important; }
+.seg button:disabled { opacity: .4; cursor: default; }
 .gapdemo { display: block; width: 100%; height: 74px; border-radius: 10px; border: 1px solid var(--rule); background: rgba(7,10,26,.7); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
@@ -1129,14 +1134,15 @@ button.lk { cursor: pointer; }
     return out;
   }
 
+  /* v49 (economy change 1): ship prices Ember 100, Aurora 250, Halo 500, Nebula 650, Void 1,000, Phantom 1,400. Price data only */
   const SKINS = [
     { id: "comet", name: "Comet", cost: 0, body: "#ffcc4d", flame: "#ff7a3d", speed: 14, hit: 13, lives: 3, desc: "Balanced all-rounder" },
-    { id: "ember", name: "Ember", cost: 60, body: "#ff6b4a", flame: "#ffd166", speed: 17, hit: 13, lives: 3, desc: "Fastest ship in the fleet" },
-    { id: "aurora", name: "Aurora", cost: 180, body: "#7cf3a0", flame: "#4fb8ff", speed: 14, hit: 10.5, lives: 3, desc: "Tiny frame, slips through gaps" },
-    { id: "nebula", name: "Nebula", cost: 400, body: "#ff7ad9", flame: "#9b7bff", speed: 13, hit: 13, lives: 4, desc: "Heavy armor, starts with 4 shields" },
+    { id: "ember", name: "Ember", cost: 100, body: "#ff6b4a", flame: "#ffd166", speed: 17, hit: 13, lives: 3, desc: "Fastest ship in the fleet" },
+    { id: "aurora", name: "Aurora", cost: 250, body: "#7cf3a0", flame: "#4fb8ff", speed: 14, hit: 10.5, lives: 3, desc: "Tiny frame, slips through gaps" },
+    { id: "nebula", name: "Nebula", cost: 650, body: "#ff7ad9", flame: "#9b7bff", speed: 13, hit: 13, lives: 4, desc: "Heavy armor, starts with 4 shields" },
     { id: "halo", name: "Halo", cost: 500, body: "#9fe8ff", flame: "#ffe08a", speed: 14, hit: 13, lives: 3, ability: "siphon", desc: "Star Siphon: every 15 stars restores a shield" },
-    { id: "void", name: "Void", cost: 800, body: "#f4f1ff", flame: "#a26bff", speed: 16, hit: 11, lives: 4, desc: "Fast, small and armored" },
-    { id: "phantom", name: "Phantom", cost: 1100, body: "#b9a6ff", flame: "#4fe0cf", speed: 15, hit: 12, lives: 3, ability: "phase", desc: "Phase Shift: phases out twice as long after a hit. Close calls pay double" }
+    { id: "void", name: "Void", cost: 1000, body: "#f4f1ff", flame: "#a26bff", speed: 16, hit: 11, lives: 4, desc: "Fast, small and armored" },
+    { id: "phantom", name: "Phantom", cost: 1400, body: "#b9a6ff", flame: "#4fe0cf", speed: 15, hit: 12, lives: 3, ability: "phase", desc: "Phase Shift: phases out twice as long after a hit. Close calls pay double" }
   ];
 
   /* Turn a ship + upgrade levels into run settings. Shared by the game and the server so both score the same. */
@@ -1180,50 +1186,18 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 52, date: "2026-11-19", notes: ["Meteors are now real 3D rocks drawn by your phone's graphics chip: lumpy shapes, deep craters and gritty surfaces", "They tumble more smoothly as they fall, and the underside glows hot from the entry fire", "Rocks are a bit brighter with a warm rim of light, so they stand out on every world", "Phones without 3D support keep the classic rocks"] },
+    { v: 51, date: "2026-11-18", notes: ["Your ship got a real 3D upgrade: it's now drawn by your phone's graphics chip, with shiny metal, a glass canopy and a cool rim of light", "Light glides across the hull as you bank into turns, and the canopy catches the sky", "Every ship and paint gets the new look, in runs, briefings and the Hangar", "Low graphics, and phones without 3D support, keep the classic look"] },
+    { v: 50, date: "2026-11-17", notes: ["Runs now pay coins for time flown too: 1 extra coin for every 15 seconds, on top of your stars", "Fresh Fuel: your first 5 runs each day pay double coins", "Runs pay up to 500 coins a day; missions, XP and trophies always count. It refills tomorrow"] },
+    { v: 49, date: "2026-11-16", notes: ["Pilot rank reworked: XP now comes from time flown, stars and missions, so every run counts, not just big scores", "Early ranks come quicker, later ones take longer, and new titles wait past Legend: Legend II to V", "Ships, trails and upgrade levels now open step by step as you rank up, and each rank-up pays more coins", "You keep your rank and everything you own. The Hangar shows what each rank unlocks"] },
+    { v: 48, date: "2026-11-15", notes: ["Fixed: Read lines aloud now speaks on iPhone and Android", "New Radio check button in Settings, with tips if your phone stays quiet", "The music softens while the crew is talking"] },
     { v: 47, date: "2026-11-15", notes: ["New setting: Read lines aloud (beta). Your phone can speak the crew's radio lines out loud", "Vega, Bolt, Kestrel, Nova and the Silence each get their own voice", "Briefings wait for the voice to finish, and a tap still skips ahead", "Off by default. Turn it on in Settings to hear a radio check"] },
     { v: 46, date: "2026-11-14", notes: ["Chapter 4, \"Dawn\": levels 31 to 40 are the last story missions, with their own names, briefings and win scenes", "Find out what the Silence really is. It may not be what you think", "In the final mission, Kestrel, Nova and Vega fly beside you and blast rocks out of your way", "Win it to see the Heart reborn and the credits roll. New trophy: Dawnbringer"] },
     { v: 45, date: "2026-11-13", notes: ["Chapter 3, \"Turning Tide\": levels 21 to 30 are now story missions with their own names, briefings and win scenes", "Nova flies with the crew now, and knows her way around the Prism Rings", "Kestrel vanishes into the Silence. Light the beacon in Mission 27 to guide her home", "Kestrel joins your crew as your wingman, then face Husk III together"] },
     { v: 44, date: "2026-11-12", notes: ["Chapter 2, \"The Dark Belt\": levels 11 to 20 are now story missions with their own names, crew briefings and win scenes", "A faint signal is coming from inside the Silence. Follow it all the way to Mission 20", "Break Husk II and meet Nova, a lost pilot with her own radio portrait", "Three new crew stories can turn up after a missed goal, kind as always"] },
     { v: 43, date: "2026-11-12", notes: ["New mission type: Light the Beacon! Golden light streams snake down the sky", "Every light mote counts as a star, so ride a stream to build your combo and Fever", "Catch 50 stars in one run and the beacon blazes up from your ship, +300", "Try it in Level 27, \"Beacon Fire\", and earn the new Lighthouse trophy"] },
     { v: 42, date: "2026-11-12", notes: ["New mission type: Heist! Steal glowing core fragments right out from under the Silence", "Its red searchlight sweeps the sky. Get spotted and it costs a shield, but never your run", "Fragments drift down marked paths, +100 each. Grab 4 of the 6", "Try it in Level 23, \"Core Heist\", and earn the new Shadow Runner trophy"] },
-    { v: 41, date: "2026-11-12", notes: ["New mission type: Race the Rival! Kestrel's pink ghost flies the same course as you", "Beat her score by the finish line. The top bar shows live who's ahead", "Kestrel calls it out over the radio every time the lead changes hands", "Try it in Level 14, \"Redline Duel\", and earn the new Outpaced trophy"] },
-    { v: 40, date: "2026-11-12", notes: ["New mission type: Blackout Run! The Silence kills the lights, and only the lamp around your ship stays lit", "Every star you catch in the dark feeds your lamp, so you see farther. Hits never dim it", "Rocks glow at the edges of the dark, and comet warnings always shine through", "Try it in Level 18, \"Lights Out\", and earn the new Night Flyer trophy"] },
-    { v: 39, date: "2026-11-11", notes: ["New mission type: Rescue! Escape pods drift down through the meteors on dotted paths", "Touch a pod to catch it and bring its pilot aboard, +150 each", "Pods are shielded up high. Lower down, a rock can bump one away. It drifts off safe, and a tug fetches it", "Try it in Level 13, \"Lifeboats\": catch 3 of the 4 pods, or all 4 for the third star"] },
-    { v: 38, date: "2026-11-11", notes: ["New mission type: Escort! Guide a glowing Light Ship safely to the finish", "Fly inside its teal ring and your shields join: any rock you touch is blocked for points", "Rocks that reach the Light Ship cost it a light. Lose all 3 and it turns back home, safe", "Try it in Level 16, \"Lantern Run\", and earn the new Light Keeper trophy"] },
-    { v: 37, date: "2026-11-11", notes: ["Challenge a friend! After a daily run, send a link that holds your whole run", "Your friend races your exact ghost on the same course, even on another day", "See who won by how much, then hit Rematch or send your own run back", "New trophy: Rival Racer, for beating 3 friends' challenges"] },
-    { v: 36, date: "2026-11-11", notes: ["FEVER! Reach a ×5 combo and every star pays double for 6 seconds, or 8 if it starts during an event", "The sky warms up, the music speeds up, and a FEVER bar drains next to your combo. A hit cools it down", "Retry is instant now, and the music keeps playing between runs", "Close to your best? The results screen shows how close. Beat it for a gold NEW BEST stamp, and see your next goal"] },
-    { v: 35, date: "2026-11-11", notes: ["New beacon map! Levels are now a glowing path of beacons through each sector, mission 1 at the bottom and the boss at the top", "Finished missions glow gold, your next one pulses, and your stars show under every beacon", "The path lights up as you fly, and the sector's colors come back with every beacon you light", "Light all 10 beacons in a sector and they flare up together, with a word from Commander Vega"] },
-    { v: 34, date: "2026-11-11", notes: ["Boss entrances! Before every Mothership the screen dims, red alarms pulse and the Silence speaks", "Each husk slides in with its name plate, then BREAK THE CORE and the fight is on", "Break the core and light floods back into the sector. The sky stays brighter for the rest of the run", "You see the full entrance once per husk; after that it's a quick version"] },
-    { v: 33, date: "2026-11-11", notes: ["Chapter 1, \"First Light\": levels 1 to 10 are now story missions with names, crew briefings and a win scene for each", "Meet Kestrel properly in Mission 4, and face the first Silence husk in Mission 10", "After every run your crew gives a short debrief. Missing a goal is always met kindly, and sometimes Vega or Bolt tells you a secret about the galaxy", "Miss a level goal 10 times and Bolt gives you a free tune-up: one extra shield for a level run"] },
-    { v: 32, date: "2026-11-11", notes: ["Meet your crew! Commander Vega, Bolt the mechanic and rival pilot Kestrel now talk to you over the radio", "Every run and level opens with a short radio briefing and a LAUNCH. Tap to skip a line, or skip the whole briefing", "Your crew cheers you on mid-run: boss warnings, golden stars, big combos and a little teasing from Kestrel", "Play again and Retry still jump straight back in"] },
-    { v: 31, date: "2026-11-11", notes: ["A quick double tap on End run no longer skips your results screen. You always see your score, coins and trophies", "Fixed a rare case where ending a run could pay out its coins and XP twice"] },
-    { v: 30, date: "2026-11-11", notes: ["Playing offline from your home screen always opens the game now, even after you've viewed another page", "Leaving the app during the 3-2-1 countdown pauses the game again, so you never come back to a run already moving", "A damaged save no longer leaves a blank screen: the game repairs it, and offers a reset if it can't"] },
-    { v: 29, date: "2026-11-11", notes: ["New pilots start with Level 1, a short, gentle course, before taking on the full daily run", "The start screen is shorter: drag to fly, dodge rocks, grab ★", "First-run tips now sit just under the score bar, out of the way of incoming meteors"] },
-    { v: 28, date: "2026-11-10", notes: ["Daily missions are fairer: survive 30 to 60 seconds, score 600 to 2,000, or pull off 3 to 10 close calls", "Clear all three missions in a day for a +50 coin bonus", "New worlds open sooner (15, 35 and 60 ★), Prism Rings no longer takes a shield, and the third star is yours if you finish with full shields or beat the high score", "Weaving rocks are now 3D rocks with a violet ring on every world, and the scenery black hole is a faint swirl so you never mistake it for the real one"] },
-    { v: 27, date: "2026-11-09", notes: ["The Mothership now shows up at 1:00 instead of 1:45, so you'll actually get to fight it. A tougher one follows at 2:30", "The first Mothership is a little gentler, a fair first boss fight", "The first solar flare comes a bit earlier (0:48), and black holes no longer vanish behind the boss fights"] },
-    { v: 26, date: "2026-11-08", notes: ["Gate missions are always doable now: they only show up on days with an early gates event, and ask for 2 to 4 gates", "The Supporter Pass is now looks only: Founder paint, badge, a gold trail and a Gold Rush explosion. No more XP boost, so everyone ranks up at the same pace", "Every rank-up now pays a flat 40 coins", "Your 🔥 streak counts any run, Levels included, and shows 0 if you miss a day"] },
-    { v: 25, date: "2026-11-07", notes: ["Two new ships with special abilities, each with its own 3D body", "Halo: a ring-winged cruiser. Star Siphon restores a shield every 15 stars you catch", "Phantom: a stealth wing. Phase Shift keeps you phased twice as long after a hit, and close calls pay double", "Find them in the Hangar. Halo unlocks at Pilot Lv 6, Phantom at Lv 13"] },
-    { v: 24, date: "2026-11-06", notes: ["New event: Solar Flares! The sun erupts and fires heat beams straight down the screen", "Each beam is marked with an orange column for a full second before it burns. Slide out of the way", "Ride out the flare for +100. Later flares fire two beams at once", "New trophy: Flare Dancer. Flares appear in daily runs and from the Prism Rings world on"] },
-    { v: 23, date: "2026-11-05", notes: ["New in the Shop: Booms! Pick how your ship explodes when it goes down", "Six effects: Pixel Pop, Fireworks, Shockwave, Glitch Out, Singularity and Prism Nova", "Tap ▶ to watch any effect before you buy. Fixed coin prices, looks only", "Your explosions show up in the Locker too"] },
-    { v: 22, date: "2026-11-04", notes: ["New event: Black Holes! A swirling gravity well opens mid-run", "It bends the paths of meteors and stars, swallows anything that drifts into it, and tugs on your ship", "Don't touch the core. Ride it out for +100", "New trophy: Event Horizon. Black holes appear in daily runs and from the Red Circuit world on"] },
-    { v: 21, date: "2026-11-03", notes: ["New Settings screen: open it from the start screen or the pause menu", "Choose how far above your finger the ship flies, and nudge it left or right for your thumb", "Vibration on/off, calmer screen effects (less shake and flashing), and a Low graphics mode for older phones", "Music and sound switches live there too"] },
-    { v: 20, date: "2026-11-03", notes: ["Race your best! A violet ghost replays your best daily run, move for move", "The top bar shows live whether you're ahead of or behind your best", "Beat it and your new run becomes the ghost to chase", "Switch it on or off from the start screen"] },
-    { v: 19, date: "2026-11-02", notes: ["Music! An original soundtrack that plays as you fly", "Each world has its own sound: synthwave, industrial, crystal and dark void", "The beat speeds up every sector, and an alarm layer kicks in when the Mothership attacks", "Separate Music and SFX switches at the top and on the pause screen"] },
-    { v: 18, date: "2026-11-02", notes: ["New name: Comet Run is now Meteor Pilot", "Your coins, stars, levels and unlocks carry over"] },
-    { v: 17, date: "2026-11-01", notes: ["Your spaceship is now a real 3D fighter: hull, glass cockpit, swept wings, tail fins and twin engines", "It banks into turns as you steer, with light sliding across the hull", "Blinking red and green wingtip lights and glowing engine nozzles", "Ship pictures in the Hangar show the new 3D model"] },
-    { v: 16, date: "2026-11-01", notes: ["Meteors now shatter into tumbling 3D chunks when you hit them or blast them with a Nova", "Impacts land harder: a split-second freeze frame on every hit", "Skim a rock for a close call and time slows down for a heartbeat", "The screen edges glow gold as your combo climbs, brighter at every ×"] },
-    { v: 15, date: "2026-10-31", notes: ["Boss fights! A giant Mothership guards every world finale: levels 10, 20, 30 and 40", "In daily and random runs it attacks at 1:45, and again, tougher, at 3:25", "Dodge its red bullet patterns and catch 5 cyan cores to blow it up. Big bonus, doubled if you take no hits", "New trophy: Boss Breaker"] },
-    { v: 14, date: "2026-10-30", notes: ["New Shop: buy ship paints and pilot badges with coins you earn", "Free daily gift of coins", "Paint packs and a Supporter Pass (+25% XP) as paid items. Test mode until the app launches", "Removed the Bitcoin wallet"] },
-    { v: 13, date: "2026-10-30", notes: ["18 trophies to earn, from \"Threader\" (your first gate) to \"Comet Legend\" (5,000 points)", "Each trophy pays out coins, and pops up the moment you earn it", "New Trophies screen with your progress toward every badge"] },
-    { v: 12, date: "2026-10-30", notes: ["Meteors are now real 3D space rocks: craters, rough surfaces, tumbling as they fall", "Meteors glow red-hot underneath and trail fire and embers", "Comets are white-hot with long ion tails", "Sharper graphics on high-resolution phone screens"] },
-    { v: 11, date: "2026-10-30", notes: ["Every level has its own look: 40 named scenes like Neon Horizon, Prism Gate and Event Horizon", "6 new hazard designs: neon wireframes, crystals, plasma orbs, drones, glitch cubes", "Cinematic title card at the start of each run", "Daily runs change scenery every sector"] },
-    { v: 10, date: "2026-10-30", notes: ["40 levels across 4 worlds, each with a goal and 3 stars to earn", "Earn stars to unlock new worlds", "Pilot rank: level up from every run for coin rewards", "Some ships and trails now need a higher pilot rank"] },
-    { v: 9, date: "2026-10-30", notes: ["New players get 3 quick tips during their first run", "Tips point out stars and your shields as you play", "\"Play with tips\" on the start screen if you want a refresher"] },
-    { v: 8, date: "2026-10-29", notes: ["Pause button, plus auto-pause when you leave the app", "3-2-1 countdown when you resume", "Fixed screens stacking up when the game is hosted outside Claude", "This What's new panel"] },
-    { v: 7, date: "2026-10-25", notes: ["Runs verified by the rewards server", "Real ZBD cash-out (when hosted)"] },
-    { v: 6, date: "2026-10-25", notes: ["Bitcoin rewards wallet (demo)"] },
-    { v: 5, date: "2026-10-25", notes: ["Hangar: ship stats, 4 upgrade tracks, 5 trails"] },
-    { v: 4, date: "2026-10-25", notes: ["Events: showers, gates, comets, star rain", "Golden stars, weaving meteors, sector colors"] }
+    { v: 41, date: "2026-11-12", notes: ["New mission type: Race the Rival! Kestrel's pink ghost flies the same course as you", "Beat her score by the finish line. The top bar shows live who's ahead", "Kestrel calls it out over the radio every time the lead changes hands", "Try it in Level 14, \"Redline Duel\", and earn the new Outpaced trophy"] }
   ];
   const DAILY = CR.missions(day); /* v33: the day's three missions (MISSIONS is now the story campaign table) */
   /* ---------- LEVELS + PILOT RANK (app-side; uses window.CR but never changes it) ---------- */
@@ -1402,9 +1376,10 @@ button.lk { cursor: pointer; }
       return (n - 1) % 10 === 0 || (levels[n - 1] || 0) >= 1;
     }
 
-    /* Pilot rank: XP from every run. */
-    const xpNeed = lv => 80 + lv * 40;
-    const RANKS = [[1, "Cadet"], [3, "Pilot"], [6, "Ace"], [10, "Captain"], [15, "Commander"], [20, "Legend"]];
+    /* Pilot rank: XP from every run.
+       v49 (economy change 1): XP comes from time flown, stars, missions and new level stars (never score), on a rising curve */
+    const xpNeed = lv => 50 + 20 * lv + 6 * lv * lv;
+    const RANKS = [[1, "Cadet"], [3, "Pilot"], [6, "Ace"], [10, "Captain"], [15, "Commander"], [20, "Legend"], [30, "Legend II"], [40, "Legend III"], [50, "Legend IV"], [60, "Legend V"]];
     const rankName = lv => RANKS.filter(r => lv >= r[0]).pop()[1];
     function addXP(save, amount) {
       save.xp += amount;
@@ -1412,10 +1387,12 @@ button.lk { cursor: pointer; }
       while (save.xp >= xpNeed(save.pilot)) { save.xp -= xpNeed(save.pilot); save.pilot++; ups.push(save.pilot); }
       return ups;
     }
-    const runXP = (r, newLevelStars) => Math.floor(r.score / 10) + newLevelStars * 25;
-    const levelUpCoins = () => 40; /* v26: flat, so ship unlocks stretch across the first week or so */
+    const runXP = (r, newLevelStars) => Math.min(400, 10 + Math.floor(r.t / TPS) + 2 * r.stars) + 25 * newLevelStars;
+    const levelUpCoins = lv => lv <= 20 ? 30 + 5 * lv : 100; /* v49: 40 at rank 2 up to 130 at rank 20, then 100 */
+    /* v49: daily missions pay XP too (+20 / +30 / +40 by tier, +30 for clearing all three) */
+    const missionXP = tier => 20 + 10 * tier, ALL_XP = 30;
 
-    return { WORLDS, COUNT, get, progress, rate, total, worldOpen, levelOpen, xpNeed, rankName, addXP, runXP, levelUpCoins, BEACON_SPARE };
+    return { WORLDS, COUNT, get, progress, rate, total, worldOpen, levelOpen, xpNeed, rankName, addXP, runXP, levelUpCoins, missionXP, ALL_XP, BEACON_SPARE };
   }
 
   const LV = makeLevels(CR);
@@ -1733,7 +1710,8 @@ button.lk { cursor: pointer; }
      a lumpy silhouette, lit from the top left with a hot glow underneath. We pre-render
      FRAMES rotation frames per variant once, then the game just picks a frame. */
   function makeMeteors() {
-    const VARIANTS = 6, FRAMES = 16, S = 128, TW = 256, TH = 128;
+    const VARIANTS = 6, S = 128, TW = 256, TH = 128;
+    let FRAMES = 16; /* v52: 24 tumbling frames when the GPU builds the rocks */
     const PAL = [[0.62, 0.55, 0.5], [0.52, 0.47, 0.44], [0.66, 0.5, 0.4], [0.45, 0.45, 0.48], [0.58, 0.52, 0.46], [0.7, 0.6, 0.52]];
     const sprites = [];
     let built = 0;
@@ -1821,16 +1799,173 @@ button.lk { cursor: pointer; }
       sprites[v] = frames; built++;
       return built >= VARIANTS;
     }
-    function buildAll(done) { const go = () => { if (!buildStep()) setTimeout(go, 16); else if (done) done(); }; setTimeout(go, 50); }
+    /* ---------- GPU ROCKS (v52, mission plan 8 stage 3D-b) ----------
+       Each rock type is a real mesh: an icosphere pushed in and out by the same noise and craters as the texture above,
+       lit per pixel (diffuse, a little spec, a warm rim light, fine grain, a dark limb) with the entry heat glowing on
+       its underside. All tumbling frames of one rock type come from a single instanced draw into an atlas, then are cut
+       into the same sprite frames the game already uses, so a meteor still costs one drawImage a frame and sizes and hit
+       boxes stay exactly the same. The context is released afterwards. No WebGL or any error: the canvas rocks above. */
+    const GFR = 24, CELL = 128, COLS = 6, ROWS = GFR / COLS;
+    let gpu = false;
+    function icosphere(n) {
+      const g = (1 + Math.sqrt(5)) / 2, V = [], mid = new Map();
+      const add = (x, y, z) => { const l = Math.hypot(x, y, z); V.push([x / l, y / l, z / l]); return V.length - 1; };
+      [[-1, g, 0], [1, g, 0], [-1, -g, 0], [1, -g, 0], [0, -1, g], [0, 1, g], [0, -1, -g], [0, 1, -g], [g, 0, -1], [g, 0, 1], [-g, 0, -1], [-g, 0, 1]].forEach(p => add(p[0], p[1], p[2]));
+      let F = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8], [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
+      const m = (a, b) => { const k = a < b ? a * 65536 + b : b * 65536 + a; if (mid.has(k)) return mid.get(k); const A = V[a], B = V[b], i = add(A[0] + B[0], A[1] + B[1], A[2] + B[2]); mid.set(k, i); return i; };
+      for (let s = 0; s < n; s++) { const nf = []; for (const [a, b, c] of F) { const ab = m(a, b), bc = m(b, c), ca = m(c, a); nf.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]); } F = nf; }
+      return { V, F };
+    }
+    /* the rock's shape and color: big lumps, the texture's ridges and craters, an average radius of 0.84 like the canvas rocks */
+    function rockMesh(v, ico) {
+      let rs = v * 9301 + 49297; const rnd = () => ((rs = (rs * 9301 + 49297) % 233280) / 233280);
+      const craters = Array.from({ length: 18 }, () => {
+        const u = rnd() * 2 - 1, th = rnd() * 6.283, q = Math.sqrt(1 - u * u);
+        const big = rnd() < 0.35; return { x: q * Math.cos(th), y: u, z: q * Math.sin(th), r: big ? 0.22 + rnd() * 0.25 : 0.05 + rnd() * 0.1, d: 0.5 + rnd() * 0.6 };
+      });
+      const n = ico.V.length, R = new Float32Array(n), alb = new Float32Array(n);
+      let sum = 0;
+      ico.V.forEach(([x, y, z], i) => {
+        let h = fbm(x * 2.3 + 5, y * 2.3 + 5, z * 2.3 + 5, v * 17) - 0.5 + (fbm(x * 11 + 3, y * 11 + 3, z * 11 + 3, v * 7) - 0.5) * 0.18;
+        let a = 0.78 + (fbm(x * 5 + 9, y * 5 + 9, z * 5 + 9, v * 31) - 0.5) * 0.7;
+        for (const c of craters) {
+          const d = Math.acos(Math.max(-1, Math.min(1, x * c.x + y * c.y + z * c.z)));
+          if (d < c.r) { const k = 1 - (d / c.r) ** 2; h -= 0.32 * k * c.d; a -= 0.18 * k; }
+          h += 0.16 * c.d * Math.exp(-(((d - c.r) / 0.05) ** 2));
+        }
+        const lump = (fbm(x * 1.2 + 11, y * 1.2 + 11, z * 1.2 + 11, v * 13) - 0.47) * 0.5;
+        R[i] = 1 + lump + 0.2 * h; sum += R[i];
+        alb[i] = Math.max(0.25, Math.min(1.1, a)) * (0.9 + h * 0.5);
+      });
+      const k = 0.84 / (sum / n), P = new Float32Array(n * 3), N = new Float32Array(n * 3);
+      ico.V.forEach(([x, y, z], i) => { const r = Math.max(0.66, Math.min(0.99, R[i] * k)); P[i * 3] = x * r; P[i * 3 + 1] = y * r; P[i * 3 + 2] = z * r; });
+      for (const [a, b, c] of ico.F) {
+        const ux = P[b * 3] - P[a * 3], uy = P[b * 3 + 1] - P[a * 3 + 1], uz = P[b * 3 + 2] - P[a * 3 + 2];
+        const wx = P[c * 3] - P[a * 3], wy = P[c * 3 + 1] - P[a * 3 + 1], wz = P[c * 3 + 2] - P[a * 3 + 2];
+        let fx = uy * wz - uz * wy, fy = uz * wx - ux * wz, fz = ux * wy - uy * wx;
+        if (fx * P[a * 3] + fy * P[a * 3 + 1] + fz * P[a * 3 + 2] < 0) { fx = -fx; fy = -fy; fz = -fz; } /* always point outward */
+        for (const q of [a, b, c]) { N[q * 3] += fx; N[q * 3 + 1] += fy; N[q * 3 + 2] += fz; }
+      }
+      const out = new Float32Array(n * 7);
+      for (let i = 0; i < n; i++) {
+        const l = Math.hypot(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]) || 1;
+        out.set([P[i * 3], P[i * 3 + 1], P[i * 3 + 2], N[i * 3] / l, N[i * 3 + 1] / l, N[i * 3 + 2] / l, alb[i]], i * 7);
+      }
+      return out;
+    }
+    const ROCK_VS = `attribute vec3 aP;attribute vec3 aN;attribute float aA;attribute float aF;uniform float uTilt;uniform vec2 uGrid;uniform float uFr;
+varying vec3 vN;varying vec3 vO;varying float vA;
+mat3 rx(float a){float c=cos(a),s=sin(a);return mat3(1.0,0.0,0.0,0.0,c,s,0.0,-s,c);}
+mat3 ry(float a){float c=cos(a),s=sin(a);return mat3(c,0.0,-s,0.0,1.0,0.0,s,0.0,c);}
+mat3 rz(float a){float c=cos(a),s=sin(a);return mat3(c,s,0.0,-s,c,0.0,0.0,0.0,1.0);}
+void main(){float an=aF/uFr*6.2831853;mat3 M=rx(uTilt)*rz(0.35*sin(an))*ry(an);vec3 p=M*aP;vN=M*aN;vO=aP;vA=aA;
+float row=floor((aF+0.5)/uGrid.x),col=aF-row*uGrid.x;
+gl_Position=vec4(-1.0+(col+0.5)/uGrid.x*2.0+p.x/uGrid.x,1.0-(row+0.5)/uGrid.y*2.0+p.y/uGrid.y,-p.z*0.5,1.0);}`;
+    const ROCK_FS = `#extension GL_OES_standard_derivatives : enable
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec3 vN;varying vec3 vO;varying float vA;uniform vec3 uBase;uniform vec3 uL;uniform float uV;
+float h3(vec3 p){return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453);}
+float vn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+return mix(mix(mix(h3(i),h3(i+vec3(1.0,0.0,0.0)),f.x),mix(h3(i+vec3(0.0,1.0,0.0)),h3(i+vec3(1.0,1.0,0.0)),f.x),f.y),
+mix(mix(h3(i+vec3(0.0,0.0,1.0)),h3(i+vec3(1.0,0.0,1.0)),f.x),mix(h3(i+vec3(0.0,1.0,1.0)),h3(i+vec3(1.0,1.0,1.0)),f.x),f.y),f.z);}
+void main(){vec3 N0=normalize(vN);
+float g=vn(vO*9.0+uV*7.0)*0.6+vn(vO*23.0+uV*3.0)*0.4;
+vec3 N=normalize(N0-vec3(dFdx(g),dFdy(g),0.0)*1.6);
+float dif=max(dot(N,uL),0.0);vec3 H=normalize(uL+vec3(0.0,0.0,1.0));float sp=pow(max(dot(N,H),0.0),40.0)*0.08;
+float z=clamp(N0.z,0.0,1.0);
+vec3 c=uBase*vA*(0.86+g*0.28)*(0.06+dif*1.15)*(0.75+0.25*z);
+c+=vec3(1.0,0.84,0.69)*pow(1.0-z,3.0)*0.5*(0.3+0.7*smoothstep(-0.2,0.6,dot(N0,uL)));
+c+=vec3(1.0,0.42,0.12)*pow(max(0.0,0.1-N.y*0.9),2.0)*0.55+vec3(sp);
+c*=mix(0.35,1.0,smoothstep(0.04,0.2,z));
+gl_FragColor=vec4(min(c,vec3(1.0)),1.0);}`;
+    /* Builds one rock type per call (like the canvas builder), so a slow phone never freezes for long while loading */
+    function glBuilder() {
+      let gl = null, cv, inst, at, u, ico, idx, vb, fb, v = 0;
+      const out = [], warn = e => { try { console.warn("Meteor Pilot: 3D rocks off", e); } catch (_) {} };
+      const lose = () => { try { const x = gl && gl.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } catch (e) {} gl = null; };
+      try {
+        cv = document.createElement("canvas"); cv.width = CELL * COLS; cv.height = CELL * ROWS;
+        gl = cv.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, preserveDrawingBuffer: false });
+        if (!gl || !gl.getExtension("OES_standard_derivatives")) throw new Error("no webgl");
+        inst = gl.getExtension("ANGLE_instanced_arrays");
+        const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || "shader"); return s; };
+        const pr = gl.createProgram();
+        gl.attachShader(pr, sh(gl.VERTEX_SHADER, ROCK_VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, ROCK_FS));
+        gl.bindAttribLocation(pr, 0, "aP"); gl.linkProgram(pr);
+        if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error("link");
+        gl.useProgram(pr);
+        at = { P: 0, N: gl.getAttribLocation(pr, "aN"), A: gl.getAttribLocation(pr, "aA"), F: gl.getAttribLocation(pr, "aF") };
+        u = {};
+        for (const k of ["uTilt", "uGrid", "uFr", "uBase", "uL", "uV"]) u[k] = gl.getUniformLocation(pr, k);
+        const L = [-0.55, 0.62, 0.56], ln = Math.hypot(...L);
+        gl.uniform3f(u.uL, L[0] / ln, L[1] / ln, L[2] / ln); gl.uniform2f(u.uGrid, COLS, ROWS); gl.uniform1f(u.uFr, GFR);
+        ico = icosphere(4); idx = new Uint16Array(ico.F.length * 3);
+        ico.F.forEach((f, i) => idx.set(f, i * 3));
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+        vb = gl.createBuffer(); fb = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, fb); gl.bufferData(gl.ARRAY_BUFFER, Float32Array.from({ length: GFR }, (_, i) => i), gl.STATIC_DRAW);
+        gl.enable(gl.DEPTH_TEST); gl.clearColor(0, 0, 0, 0); gl.viewport(0, 0, cv.width, cv.height);
+      } catch (e) { warn(e); lose(); return null; }
+      return function step() {
+        try {
+          if (!gl || gl.isContextLost()) throw new Error("lost");
+          gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, rockMesh(v, ico), gl.STATIC_DRAW);
+          gl.enableVertexAttribArray(at.P); gl.vertexAttribPointer(at.P, 3, gl.FLOAT, false, 28, 0);
+          gl.enableVertexAttribArray(at.N); gl.vertexAttribPointer(at.N, 3, gl.FLOAT, false, 28, 12);
+          gl.enableVertexAttribArray(at.A); gl.vertexAttribPointer(at.A, 1, gl.FLOAT, false, 28, 24);
+          gl.uniform1f(u.uTilt, 0.45 + v * 0.07); gl.uniform1f(u.uV, v);
+          /* art direction fix 1: rock bodies 25% brighter so they read on dark navy and maroon skies */
+          gl.uniform3f(u.uBase, PAL[v][0] * 1.25, PAL[v][1] * 1.25, PAL[v][2] * 1.25);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          if (inst) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, fb); gl.enableVertexAttribArray(at.F); gl.vertexAttribPointer(at.F, 1, gl.FLOAT, false, 4, 0);
+            inst.vertexAttribDivisorANGLE(at.F, 1);
+            inst.drawElementsInstancedANGLE(gl.TRIANGLES, idx.length, gl.UNSIGNED_SHORT, 0, GFR);
+          } else {
+            gl.disableVertexAttribArray(at.F);
+            for (let f = 0; f < GFR; f++) { gl.vertexAttrib1f(at.F, f); gl.drawElements(gl.TRIANGLES, idx.length, gl.UNSIGNED_SHORT, 0); }
+          }
+          if (gl.getError() !== gl.NO_ERROR || gl.isContextLost()) throw new Error("draw");
+          const frames = [];
+          for (let f = 0; f < GFR; f++) {
+            const c = document.createElement("canvas"); c.width = c.height = CELL;
+            c.getContext("2d").drawImage(cv, (f % COLS) * CELL, Math.floor(f / COLS) * CELL, CELL, CELL, 0, 0, CELL, CELL);
+            frames.push(c);
+          }
+          /* a blank frame means the GPU didn't really draw: use the canvas rocks instead */
+          if (frames[0].getContext("2d").getImageData(CELL / 2, CELL / 2, 1, 1).data[3] < 200) throw new Error("blank");
+          out.push(frames);
+          if (++v < VARIANTS) return false;
+          out.forEach((f, k) => { sprites[k] = f; });
+          FRAMES = GFR; built = VARIANTS; gpu = true; lose();
+          return true;
+        } catch (e) { warn(e); lose(); throw e; }
+      };
+    }
+    function buildAll(done) {
+      const go = () => { if (!buildStep()) setTimeout(go, 16); else if (done) done(); };
+      setTimeout(() => {
+        const g = glBuilder();
+        if (!g) return go();
+        const gs = () => { let fin = false; try { fin = g(); } catch (e) { return go(); } if (!fin) setTimeout(gs, 16); else if (done) done(); };
+        gs();
+      }, 50);
+    }
 
     const hex = (c, a) => { const n = parseInt(c.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
 
+    /* same spin speed whatever the frame count */
+    const frameIdx = (it, t) => Math.floor((t * (0.12 + (it.id % 4) * 0.05) + it.id * 5) * FRAMES / 16) % FRAMES;
     /** Draws a meteor. glow = theme color for the entry fire. Returns false if sprites aren't ready yet. */
     function draw(ctx, a, t, glow, cool) {
       const it = a.it, v = it.id % VARIANTS;
       if (!sprites[v]) return false;
       const r = it.r, size = r * 2 / 0.84;
-      const fr = sprites[v][Math.floor(t * (0.12 + (it.id % 4) * 0.05) + it.id * 5) % FRAMES];
+      const fr = sprites[v][frameIdx(it, t)];
       const heatCol = cool ? "#bfe6ff" : glow;
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
@@ -1870,10 +2005,10 @@ button.lk { cursor: pointer; }
     /** The sprite frame a meteor is showing right now (for shattering it into chunks). */
     function frameOf(it, t) {
       const v = it.id % VARIANTS; if (!sprites[v]) return null;
-      return { img: sprites[v][Math.floor(t * (0.12 + (it.id % 4) * 0.05) + it.id * 5) % FRAMES], size: it.r * 2 / 0.84 };
+      return { img: sprites[v][frameIdx(it, t)], size: it.r * 2 / 0.84 };
     }
 
-    return { buildAll, draw, drawComet, frameOf, ready: () => built >= VARIANTS, sprites };
+    return { buildAll, draw, drawComet, frameOf, ready: () => built >= VARIANTS, sprites, info: () => ({ gpu, frames: FRAMES, ready: built >= VARIANTS }) };
   }
 
   const M3 = makeMeteors(); M3.buildAll();
@@ -1957,13 +2092,121 @@ button.lk { cursor: pointer; }
       return [x, y * cp - z0 * sp, y * sp + z0 * cp];
     }
 
+    /* ---------- GPU HULL (v51, mission plan 8 stage 3D-a) ----------
+       A tiny in-house WebGL renderer: the same ship meshes, lit per pixel (diffuse, Blinn specular, a cool rim light,
+       mirror-like metal and a glass canopy that reflects a fake sky). Each look (model, paint, banking step, size) is
+       rendered once into a small cached image, so a frame costs one drawImage per ship. Flames, nozzle glow and nav
+       lights stay on the 2D canvas. No WebGL, a lost context or Low graphics: the faceted canvas hull above is used. */
+    for (const k in MODELS) MODELS[k].id = k;
+    const GL = { want: false, on: false, ok: null, gl: null, cv: null, loc: null, meshes: new Map(), cache: new Map(), renders: 0 };
+    const GL_VS = `attribute vec3 aP;attribute vec3 aN;attribute float aM;attribute vec3 aB;uniform vec4 uR;uniform float uK;varying vec3 vN;varying vec3 vM;varying float vMat;varying vec3 vB;
+vec3 rot(vec3 v){float x=v.x*uR.x+v.z*uR.y;float z0=-v.x*uR.y+v.z*uR.x;return vec3(x,v.y*uR.z-z0*uR.w,v.y*uR.w+z0*uR.z);}
+void main(){vec3 p=rot(aP);vN=rot(aN);vM=aP;vMat=aM;vB=aB;gl_Position=vec4(p.x*uK,p.y*uK,-p.z*0.4,1.0);}`;
+    const GL_FS = `#extension GL_OES_standard_derivatives : enable
+precision mediump float;varying vec3 vN;varying vec3 vM;varying float vMat;varying vec3 vB;uniform vec3 uBody;uniform vec3 uL;uniform vec3 uH;
+void main(){vec3 N=normalize(vN);if(N.z<0.0)N=-N;float m=vMat+0.5;float dif=max(dot(N,uL),0.0);
+vec3 R=reflect(vec3(0.0,0.0,-1.0),N);
+vec3 env=mix(vec3(0.01,0.012,0.04),vec3(0.8,0.86,1.0),smoothstep(0.0,0.95,R.y))+vec3(1.0,0.78,0.5)*pow(max(dot(R,uL),0.0),18.0)*0.5;
+float fres=pow(1.0-clamp(N.z,0.0,1.0),3.0);vec3 c;float sp;float pw;
+if(m<1.0){c=uBody;sp=0.24;pw=48.0;}else if(m<2.0){c=uBody*0.4;sp=0.1;pw=10.0;}else if(m<3.0){c=uBody*0.5;sp=0.2;pw=24.0;}
+else if(m<4.0){c=mix(vec3(0.22,0.24,0.32),uBody,0.18);sp=0.55;pw=44.0;}else if(m<5.0){c=uBody*0.75;sp=0.3;pw=12.0;}else{c=vec3(0.015,0.07,0.17);sp=1.4;pw=64.0;}
+float spec=pow(max(dot(N,uH),0.0),pw)*sp;vec3 col;
+if(m>=5.0){col=(c+env*0.5*(0.35+0.65*fres))*(m<6.0?1.0:0.62)+vec3(spec);}
+else if(m>=3.0&&m<4.0){col=c*(0.05+dif*0.95)+env*c*0.45+vec3(spec);}
+else{col=c*(0.035+dif*1.1)+vec3(spec);if(m<1.0||(m>=2.0&&m<3.0)){float d=abs(fract(vM.y*6.0)-0.5);col*=1.0-0.2*smoothstep(0.44,0.5,d);}}
+col+=vec3(0.55,0.8,1.0)*fres*0.3*(0.4+0.6*dif);col*=0.72+0.28*smoothstep(-0.12,0.22,vM.z);
+vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3.x,e3.y),e3.z);col*=mix(m>=5.0?0.55:0.4,1.0,edge);gl_FragColor=vec4(pow(max(col,vec3(0.0)),vec3(1.0/2.2)),1.0);}`;
+    function glInit() {
+      if (GL.ok !== null) return GL.ok;
+      GL.ok = false;
+      try {
+        const cv = document.createElement("canvas"); cv.width = cv.height = 128;
+        const gl = cv.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, preserveDrawingBuffer: false });
+        if (!gl || !gl.getExtension("OES_standard_derivatives")) return false;
+        const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || "shader"); return s; };
+        const pr = gl.createProgram();
+        gl.attachShader(pr, sh(gl.VERTEX_SHADER, GL_VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, GL_FS)); gl.linkProgram(pr);
+        if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error("link");
+        gl.useProgram(pr);
+        const loc = { P: gl.getAttribLocation(pr, "aP"), N: gl.getAttribLocation(pr, "aN"), M: gl.getAttribLocation(pr, "aM"), B: gl.getAttribLocation(pr, "aB") };
+        for (const u of ["uR", "uK", "uBody", "uL", "uH"]) loc[u] = gl.getUniformLocation(pr, u);
+        /* a slightly lower key light than the canvas hull, so neighbouring panels read apart */
+        const L2 = (() => { const v = [-0.6, 0.55, 0.58], n = Math.hypot(...v); return v.map(c => c / n); })(), H2 = (() => { const v = [L2[0], L2[1], L2[2] + 1], n = Math.hypot(...v); return v.map(c => c / n); })();
+        gl.uniform3fv(loc.uL, L2); gl.uniform3fv(loc.uH, H2); gl.uniform1f(loc.uK, 1 / 1.1);
+        gl.enable(gl.DEPTH_TEST); gl.clearColor(0, 0, 0, 0);
+        cv.addEventListener("webglcontextlost", e => { e.preventDefault(); GL.ok = false; GL.on = false; GL.meshes.clear(); });
+        Object.assign(GL, { gl, cv, loc }); GL.ok = true;
+      } catch (e) { GL.ok = false; try { console.warn("Meteor Pilot: 3D ship off", e); } catch (_) {} }
+      return GL.ok;
+    }
+    const MAT_ID = { hull: 0, under: 1, dark: 2, metal: 3, fin: 4, glass: 5, glassD: 6 };
+    function glMesh(Mo) {
+      let m = GL.meshes.get(Mo.id); if (m) return m;
+      const gl = GL.gl, out = [];
+      for (const f of Mo.faces) {
+        const p = f.pts, a = p[0], b = p[1], c = p[2];
+        const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        const nl = Math.hypot(...n) || 1; n = n.map(k => k / nl);
+        /* fan triangles; barycentric coords mark only the polygon's own edges (the inner diagonals stay hidden) */
+        for (let i = 1; i < p.length - 1; i++) {
+          const hide = [0, i + 1 < p.length - 1 ? 1 : 0, i > 1 ? 1 : 0]; /* opposite p0: always an edge; opposite pi: edge p0-p(i+1); opposite p(i+1): edge p0-pi */
+          const tri = [p[0], p[i], p[i + 1]];
+          tri.forEach((q, j) => out.push(q[0], q[1], q[2], n[0], n[1], n[2], MAT_ID[f.mat] || 0, (j === 0 ? 1 : 0) + hide[0], (j === 1 ? 1 : 0) + hide[1], (j === 2 ? 1 : 0) + hide[2]));
+        }
+      }
+      const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(out), gl.STATIC_DRAW);
+      m = { buf, n: out.length / 10 }; GL.meshes.set(Mo.id, m); return m;
+    }
+    const lin = v => Math.pow(v / 255, 2.2);
+    function glRender(Mo, col, roll, px) {
+      const gl = GL.gl, cv = GL.cv, loc = GL.loc;
+      if (gl.isContextLost()) { GL.ok = false; GL.on = false; return null; }
+      if (cv.width !== px) { cv.width = cv.height = px; }
+      gl.viewport(0, 0, px, px); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      const mesh = glMesh(Mo);
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.buf);
+      gl.enableVertexAttribArray(loc.P); gl.vertexAttribPointer(loc.P, 3, gl.FLOAT, false, 40, 0);
+      gl.enableVertexAttribArray(loc.N); gl.vertexAttribPointer(loc.N, 3, gl.FLOAT, false, 40, 12);
+      gl.enableVertexAttribArray(loc.M); gl.vertexAttribPointer(loc.M, 1, gl.FLOAT, false, 40, 24);
+      gl.enableVertexAttribArray(loc.B); gl.vertexAttribPointer(loc.B, 3, gl.FLOAT, false, 40, 28);
+      gl.uniform4f(loc.uR, Math.cos(roll), Math.sin(roll), Math.cos(-0.45), Math.sin(-0.45));
+      gl.uniform3f(loc.uBody, lin(col[0]), lin(col[1]), lin(col[2]));
+      gl.drawArrays(gl.TRIANGLES, 0, mesh.n);
+      /* copy into a plain 2D canvas with a soft dark edge, so the hull reads on bright skies like the outlined canvas hull did */
+      const out = document.createElement("canvas"); out.width = out.height = px;
+      const g = out.getContext("2d"); g.shadowColor = "rgba(5,6,16,.75)"; g.shadowBlur = Math.max(1, px / 70); g.drawImage(cv, 0, 0);
+      GL.renders++;
+      return out;
+    }
+    /** Draw the GPU-lit hull centred on the current origin. False means "use the canvas hull". */
+    function glHull(ctx, Mo, body, roll, S) {
+      if (typeof body !== "string" || body[0] !== "#") return false; /* Prismatic shifts color every frame: the canvas hull draws it */
+      let k = 2;
+      try { const m = ctx.getTransform(); k = Math.hypot(m.a, m.b) || 2; } catch (e) {}
+      const px = Math.max(32, Math.min(256, Math.ceil(S * 2.2 * k / 16) * 16));
+      const q = Math.max(-16, Math.min(16, Math.round(roll / 0.05)));
+      const col = rgb(body).map(v => Math.min(255, Math.round(v / 8) * 8));
+      const key = Mo.id + "|" + col.join(",") + "|" + q + "|" + px;
+      let img = GL.cache.get(key);
+      if (img) { GL.cache.delete(key); GL.cache.set(key, img); }
+      else {
+        try { img = glRender(Mo, col, q * 0.05, px); } catch (e) { img = null; }
+        if (!img) { GL.on = false; return false; }
+        GL.cache.set(key, img);
+        if (GL.cache.size > 140) GL.cache.delete(GL.cache.keys().next().value);
+      }
+      ctx.drawImage(img, -1.1 * S, -1.1 * S, 2.2 * S, 2.2 * S);
+      return true;
+    }
+
     /** opts: { body, flame, alpha=1, roll=0, t=0, scale=1, thrust=true, lights=true } */
     function draw(ctx, x, y, o) {
       const S = 21 * (o.scale || 1), roll = o.roll || 0, pitch = -0.45;
       const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
       const base = rgb(o.body), metal = [128, 138, 168], glassC = [70, 170, 230];
       const Mo = MODELS[o.model] || MODELS.fighter, NOZ = Mo.NOZ, TIPS = Mo.TIPS, C0 = Mo.C0, C4 = Mo.C4;
-      const proj = Mo.faces.map(f => {
+      const projFaces = () => Mo.faces.map(f => {
         const q = f.pts.map(p => transform(p, cr, sr, cp, sp));
         const a = q[0], b = q[1], c = q[2];
         const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
@@ -1983,6 +2226,9 @@ button.lk { cursor: pointer; }
           ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ex - 3.2, ey); ctx.quadraticCurveTo(ex, ey + f * 0.6, ex, ey + f + 8); ctx.quadraticCurveTo(ex, ey + f * 0.6, ex + 3.2, ey); ctx.fill();
         }
       }
+      /* v51 (mission plan 8, 3D-a): the hull is a real GPU-lit mesh when WebGL is on; the faceted canvas hull is the fallback */
+      if (!(GL.on && glHull(ctx, Mo, o.body, roll, S))) {
+      const proj = projFaces();
       ctx.lineJoin = "round";
       for (const F of proj) {
         const m = MAT[F.mat], n = F.n;
@@ -1997,6 +2243,7 @@ button.lk { cursor: pointer; }
         ctx.beginPath();
         F.q.forEach((p, i) => { const sx = p[0] * S, sy = -p[1] * S; i ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy); });
         ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
       }
       // glossy reflection streak across the canopy
       {
@@ -2036,7 +2283,27 @@ button.lk { cursor: pointer; }
       draw(g, 30, 28, { body, flame, model, roll: -0.35, t: 10, scale: 1.25, thrust: true, lights: true });
       const url = c.toDataURL(); icons.set(key, url); return url;
     }
-    return { draw, icon, model: id => MODELS[id] ? id : "fighter" };
+    /* v51: while nothing moves fast (menus, briefing, results), pre-render one banking step per call for a look,
+       so a run never waits on a new image. Returns true once every step of that look is ready. */
+    function warm(ctx, body, model, scale, maxRoll) {
+      if (!GL.on) return true;
+      const Mo = MODELS[model] || MODELS.fighter, S = 21 * (scale || 1);
+      let k = 2; try { const m = ctx.getTransform(); k = Math.hypot(m.a, m.b) || 2; } catch (e) {}
+      const px = Math.max(32, Math.min(256, Math.ceil(S * 2.2 * k / 16) * 16)), col = rgb(body).map(v => Math.min(255, Math.round(v / 8) * 8));
+      const lim = Math.min(16, Math.ceil((maxRoll || 0.75) / 0.05));
+      for (let q = -lim; q <= lim; q++) {
+        const key = Mo.id + "|" + col.join(",") + "|" + q + "|" + px;
+        if (GL.cache.has(key)) continue;
+        let img = null; try { img = glRender(Mo, col, q * 0.05, px); } catch (e) {}
+        if (!img) { GL.on = false; return true; }
+        GL.cache.set(key, img); if (GL.cache.size > 140) GL.cache.delete(GL.cache.keys().next().value);
+        return false;
+      }
+      return true;
+    }
+    /* Turn the GPU hull on or off (off in Low graphics). Returns whether it is actually running. */
+    function setGL(want) { GL.want = !!want; GL.on = GL.want && glInit(); return GL.on; }
+    return { draw, icon, model: id => MODELS[id] ? id : "fighter", setGL, warm, glInfo: () => ({ on: GL.on, ok: GL.ok, cached: GL.cache.size, renders: GL.renders }) };
   }
 
   const SHIP3D = makeShip3D();
@@ -2068,9 +2335,15 @@ button.lk { cursor: pointer; }
   save.set = Object.assign({ haptics: true, motion: "auto", gap: "normal", hand: "center", gfx: "high" }, save.set && typeof save.set === "object" ? save.set : {});
   if (typeof save.set.voice !== "boolean") save.set.voice = false; /* v47: read lines aloud, off by default */
   const lowGfx = () => save.set.gfx === "low";
-  save.xp = save.xp || 0; save.pilot = save.pilot || 1;
-  const SHIP_RANK = { comet: 1, ember: 2, aurora: 4, nebula: 7, halo: 6, void: 10, phantom: 13 };
-  const TRAIL_RANK = { none: 1, sparks: 3, rainbow: 5, plasma: 8, stardust: 12 };
+  SHIP3D.setGL(!lowGfx()); /* v51: GPU-lit ship hull, off in Low graphics */
+  save.xp = Number.isFinite(save.xp) && save.xp > 0 ? Math.floor(save.xp) : 0;
+  save.pilot = Number.isInteger(save.pilot) && save.pilot > 0 ? save.pilot : 1;
+  /* v49 (economy change 1): ships, trails and upgrade levels open step by step. Nobody is demoted: rank and everything owned stay.
+     XP carried over from the old curve is capped just under the next rank, so it doesn't pour out as a burst of rank-ups. */
+  const SHIP_RANK = { comet: 1, ember: 2, aurora: 4, halo: 6, nebula: 9, void: 12, phantom: 16 };
+  const TRAIL_RANK = { none: 1, sparks: 3, rainbow: 5, plasma: 9, stardust: 13 };
+  const UP_RANK = [1, 3, 6, 10, 15]; /* rank needed for upgrade level 1..5 */
+  if (save.econ !== 1) { save.xp = Math.min(save.xp, LV.xpNeed(save.pilot) - 1); save.econ = 1; }
   save.up = Object.assign({ magnet: 0, guard: 0, value: 0, nova: 0 }, save.up || {});
   const UPGRADES = [
     { id: "magnet", name: "Magnet Coil", icon: "U", color: "#ff7ad9", costs: [40, 100, 220, 400, 700], desc: l => `Magnet lasts ${(6 + 1.5 * l).toFixed(1)}s` },
@@ -2090,6 +2363,26 @@ button.lk { cursor: pointer; }
     return CR.loadoutCfg(skin().id, save.up);
   }
   const persist = () => { try { localStorage.setItem("cometrun:v2", JSON.stringify(save)); } catch (e) {} };
+  /* v50 (economy change 2): run coins = stars + 1 per 15 s flown. The first 5 runs each day pay double (Fresh Fuel),
+     and runs pay up to 500 run coins a day. Missions, gift, XP and trophies are never limited. A run that would pay
+     nothing (an instant quit) doesn't use up a Fresh Fuel run. */
+  const FUEL_RUNS = 5, RUN_COIN_CAP = 500;
+  for (const k of ["fuelDay", "runsToday", "runCoinsDay", "runCoinsToday"]) if (!Number.isInteger(save[k]) || save[k] < 0) save[k] = 0;
+  function payRun(r) {
+    const base = r.stars + Math.floor(r.t / TPS / 15);
+    if (save.fuelDay !== day) { save.fuelDay = day; save.runsToday = 0; }
+    if (save.runCoinsDay !== day) { save.runCoinsDay = day; save.runCoinsToday = 0; }
+    let fresh = 0;
+    if (base > 0 && save.runsToday < FUEL_RUNS) fresh = ++save.runsToday;
+    const want = base * (fresh ? 2 : 1), coins = Math.max(0, Math.min(want, RUN_COIN_CAP - save.runCoinsToday));
+    save.runCoinsToday += coins;
+    return { coins, fresh, capped: coins < want, full: save.runCoinsToday >= RUN_COIN_CAP };
+  }
+  function fuelHTML(p) {
+    if (p.full) return `<p class="fine">Today's run coins: ${RUN_COIN_CAP}/${RUN_COIN_CAP}. Missions, XP and trophies still count. Refills tomorrow.</p>`;
+    if (p.fresh) return `<div class="fuel">Fresh Fuel ×2 · run ${p.fresh} of ${FUEL_RUNS} today</div>`;
+    return "";
+  }
   const missionDone = k => !!(save.missions[day] || {})[k];
   const skin = () => SKINS.find(s => s.id === save.skin) || SKINS[0];
 
@@ -2231,7 +2524,7 @@ button.lk { cursor: pointer; }
         bass: "0..0..o.0..0..5.", bassT: "sawtooth", bassOct: 0, bassLen: 2, bassVol: .09, bassLp: 600, bassDet: 14,
         arp: "3...1..2....0...", arpT: "square", arpOct: 24, arpVol: .03, arpLen: 1, arpLp: 2200, pad: "sawtooth", padVol: .02, padLp: 800 }
     };
-    const want = { on: false, style: "menu", boost: 0, boss: false, dim: false, paused: false, fever: false };
+    const want = { on: false, style: "menu", boost: 0, boss: false, dim: false, paused: false, fever: false, duck: false };
     let bus = null, filt = null, noise = null, cur = "menu", step = 0, bar = 0, nextTime = 0;
     const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
     const note = (S, d) => S.root + S.scale[((d % 7) + 7) % 7] + 12 * Math.floor(d / 7);
@@ -2295,7 +2588,7 @@ button.lk { cursor: pointer; }
     function pump() {
       if (!ac || !init()) return;
       const now = ac.currentTime, live = want.on && !want.paused && !document.hidden && ac.state === "running";
-      bus.gain.setTargetAtTime(live ? (want.style === "menu" ? .45 : .55) : 0, now, live ? .4 : .12);
+      bus.gain.setTargetAtTime(live ? (want.style === "menu" ? .45 : .55) * (want.duck ? .35 : 1) : 0, now, live ? (want.duck ? .15 : .4) : .12); /* v48: music ducks while a line is read aloud */
       filt.frequency.setTargetAtTime(want.dim ? 650 : 16000, now, want.dim ? .03 : .25);
       if (!live) { nextTime = 0; return; }
       if (nextTime < now) nextTime = now + 0.05;
@@ -2776,21 +3069,65 @@ button.lk { cursor: pointer; }
   /* v47 (mission plan 7): "Read lines aloud (beta)". Uses the phone's built-in speech when there is one; nothing is downloaded.
      Pitch and rate are set per crew member. Display only: never touches window.CR. */
   const TTS = (() => { try { return "speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function" ? window.speechSynthesis : null; } catch (e) { return null; } })();
-  let ttsLive = null;
-  function ttsStop() { ttsLive = null; if (TTS) try { TTS.cancel(); } catch (e) {} }
-  function ttsSay(who, text) {
-    ttsStop();
-    if (!TTS || !save.set.voice || !text) return;
+  /* v48 (urgent fix 1): voices were silent on some phones. Now: never speak right after cancel() (wait ~60 ms), resume() first,
+     voices cached from voiceschanged (never waited on), the first speak happens inside a real tap, every utterance is kept
+     referenced until it ends, lines queue instead of cancelling, and the music ducks while someone talks. */
+  const IOS = (() => { try { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); } catch (e) { return false; } })();
+  let ttsVoices = [], ttsLive = null, ttsTimer = 0, ttsCancelAt = -1e9, ttsUnlocked = false;
+  const ttsHeld = new Set();
+  function ttsLoadVoices() { try { const v = TTS.getVoices ? TTS.getVoices() : []; if (v && v.length) ttsVoices = Array.from(v); } catch (e) {} }
+  if (TTS) {
+    ttsLoadVoices();
+    try { if (TTS.addEventListener) TTS.addEventListener("voiceschanged", ttsLoadVoices); else TTS.onvoiceschanged = ttsLoadVoices; } catch (e) {}
+  }
+  const ttsActive = () => { try { return !!(TTS && (TTS.speaking || TTS.pending)); } catch (e) { return false; } };
+  function ttsDuck() { try { MUSIC.want.duck = ttsHeld.size > 0; } catch (e) {} }
+  /* cancel only when something is actually speaking or queued, and remember when, so the next speak() can wait */
+  function ttsCancel() {
+    if (!ttsActive()) return false;
+    try { TTS.cancel(); } catch (e) {}
+    ttsCancelAt = performance.now(); return true;
+  }
+  function ttsStop() {
+    clearTimeout(ttsTimer); ttsTimer = 0; ttsLive = null;
+    ttsCancel(); ttsHeld.clear(); ttsDuck();
+  }
+  function ttsMake(who, text, vol) {
+    const u = new SpeechSynthesisUtterance(text), v = (CREW[who] && CREW[who].voice) || [1, 1];
+    u.pitch = v[0]; u.rate = v[1]; u.volume = vol == null ? 1 : vol; u.lang = "en-US";
+    if (!ttsVoices.length) ttsLoadVoices();
+    /* no localService filter (iPhone voices often report false); with no English voice the system default speaks */
+    const en = ttsVoices.find(x => /^en(-|_|$)/i.test(x.lang || ""));
+    if (en) u.voice = en;
+    const fin = () => { ttsHeld.delete(u); if (ttsLive === u) ttsLive = null; ttsDuck(); };
+    u.onend = fin; u.onerror = fin;
+    return u;
+  }
+  function ttsSpeakNow(u) {
+    try { TTS.resume(); } catch (e) {}
+    ttsHeld.add(u); u.t0 = performance.now(); ttsDuck();
+    try { TTS.speak(u); } catch (e) { ttsHeld.delete(u); if (ttsLive === u) ttsLive = null; ttsDuck(); }
+  }
+  /** Speak a line. skip: the player skipped ahead, so the current line is cut off; otherwise lines queue behind each other. */
+  function ttsSay(who, text, skip) {
+    if (!TTS || !save.set.voice || !text) return null;
     try {
-      const u = new SpeechSynthesisUtterance(text), v = (CREW[who] && CREW[who].voice) || [1, 1];
-      u.pitch = v[0]; u.rate = v[1]; u.volume = 1; u.lang = "en-US";
-      const voices = TTS.getVoices ? TTS.getVoices() : [];
-      const en = voices.find(x => /^en(-|_|$)/i.test(x.lang) && x.localService) || voices.find(x => /^en/i.test(x.lang));
-      if (en) u.voice = en;
-      u.onend = u.onerror = () => { if (ttsLive === u) ttsLive = null; };
+      clearTimeout(ttsTimer); ttsTimer = 0;
+      if (skip) { ttsHeld.clear(); ttsCancel(); }
+      const u = ttsMake(who, text);
       ttsLive = u; u.t0 = performance.now();
-      TTS.speak(u);
-    } catch (e) { ttsLive = null; }
+      const wait = 60 - (performance.now() - ttsCancelAt);
+      if (wait > 0) ttsTimer = setTimeout(() => { ttsTimer = 0; if (ttsLive === u) ttsSpeakNow(u); }, wait);
+      else ttsSpeakNow(u);
+      ttsUnlocked = true;
+      return u;
+    } catch (e) { ttsLive = null; return null; }
+  }
+  /* Call inside a click handler (Play, Launch, Retry, the toggle): iPhone and Chrome only allow speech that starts in a tap. */
+  function ttsUnlock() {
+    if (!TTS || !save.set.voice || ttsUnlocked) return;
+    if (performance.now() - ttsCancelAt < 60 || ttsActive()) return;
+    try { const u = ttsMake("vega", " ", 0.01); ttsSpeakNow(u); ttsUnlocked = true; } catch (e) {}
   }
   /* still talking? (capped, in case a phone never reports the end) */
   const ttsBusy = () => !!ttsLive && performance.now() - ttsLive.t0 < 7000;
@@ -2820,7 +3157,7 @@ button.lk { cursor: pointer; }
     if (!RAD.cur) { const d = RAD.done; radioStop(); if (d) d(); return; }
     RAD.shown = 0; RAD.hold = 0; RAD.blipN = 0;
     sfx.crackle(); radioRender();
-    ttsSay(RAD.cur.who, RAD.cur.text);
+    ttsSay(RAD.cur.who, RAD.cur.text, RAD.skipping);
   }
   /** Queue lines. ids: line ids or { id, vars }. */
   function radioPlay(ids, mode, done) {
@@ -2835,7 +3172,7 @@ button.lk { cursor: pointer; }
   /* Tap during a briefing: finish the line, or go to the next one. */
   function radioTap() {
     if (!RAD.cur) return;
-    if (RAD.shown < RAD.cur.text.length) { RAD.shown = RAD.cur.text.length; radioPaintText(); } else radioNext();
+    if (RAD.shown < RAD.cur.text.length) { RAD.shown = RAD.cur.text.length; radioPaintText(); } else { RAD.skipping = true; radioNext(); RAD.skipping = false; }
   }
   const CPS = 40; /* characters typed per second */
   function radioUpdate(dt) {
@@ -2881,6 +3218,7 @@ button.lk { cursor: pointer; }
   function brief(key, ids, go) {
     audio();
     hideOverlays(); $("#toast").hidden = true;
+    ttsUnlock();
     curBriefGo = go;
     if (!ids || !ids.length || briefSeen.has(key)) return launchStamp(go);
     briefSeen.add(key);
@@ -2963,7 +3301,7 @@ button.lk { cursor: pointer; }
   }
 
   async function start() {
-    audio(); sfx.tap();
+    audio(); sfx.tap(); ttsUnlock();
     if (mode !== "level") curLevel = null;
     const cfg = loadout();
     if (curLevel) cfg.lives = Math.max(1, cfg.lives - curLevel.shieldCut);
@@ -2978,7 +3316,7 @@ button.lk { cursor: pointer; }
     chunks = []; shattered = new Set(); hitStopMs = 0; slowMs = 0; slowCool = 0; nearRing = null; comboGlow = 0;
     ghostPassed = false; bestToasted = false; sector = 1; theme = TH.LIST[themeBase];
     bestBefore = mode === "daily" ? (save.best[day] || 0) : 0;
-    runMissions = new Set(); runNovas = 0; runTrophies = [];
+    runMissions = new Set(); runMissionXP = 0; runNovas = 0; runTrophies = [];
     pbLive = mode === "daily" && save.racePb ? pbFor(world) : null; pbEndToasted = false;
     if (pbLive) pbLive.roll = 0;
     tutStart();
@@ -3030,8 +3368,8 @@ button.lk { cursor: pointer; }
         <div class="statrow"><span>Shields</span><span class="meter"><i style="width:${s.lives * 25}%"></i></span></div></div>${act}</div>`;
     }).join("");
     if (hTab === "upgrades") body = UPGRADES.map(u => {
-      const l = save.up[u.id], max = l >= 5, cost = u.costs[l];
-      const act = max ? `<span class="buy eq">Max</span>` : `<button class="buy ${save.coins < cost ? "poor" : ""}" data-act="up" data-id="${u.id}">◉ ${cost}</button>`;
+      const l = save.up[u.id], max = l >= 5, cost = u.costs[l], need = UP_RANK[l] || 1;
+      const act = max ? `<span class="buy eq">Max</span>` : save.pilot < need ? `<button class="buy poor" data-act="up" data-id="${u.id}">🔒 Lv ${need}</button>` : `<button class="buy ${save.coins < cost ? "poor" : ""}" data-act="up" data-id="${u.id}">◉ ${cost}</button>`;
       return `<div class="card" style="--c:${u.color}"><span class="upico">${u.icon}</span><div class="meta"><h3>${u.name}</h3><p>${u.desc(l)}${max ? "" : `<br>Next: ${u.desc(l + 1)}`}</p>
         <div class="pips">${[0, 1, 2, 3, 4].map(i => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</div></div>${act}</div>`;
     }).join("");
@@ -3062,7 +3400,8 @@ button.lk { cursor: pointer; }
     }
     if (kind === "up") {
       const u = UPGRADES.find(x => x.id === id), l = save.up[id];
-      if (l < 5 && spend(u.costs[l], `${u.name} level ${l + 1}`)) save.up[id] = l + 1;
+      if (l < 5 && save.pilot < UP_RANK[l]) { toast(`Reach Pilot Lv ${UP_RANK[l]} for ${u.name} level ${l + 1}`); sfx.near(); }
+      else if (l < 5 && spend(u.costs[l], `${u.name} level ${l + 1}`)) save.up[id] = l + 1;
     }
     if (kind === "trail") {
       const t = TRAILS.find(x => x.id === id);
@@ -3072,12 +3411,26 @@ button.lk { cursor: pointer; }
     }
     persist(); paintChips(); renderHangar();
   }
+  /* v49: the next ship in unlock order (by rank gate, then price), so the card never points at a rank-locked ship ahead of an open one */
+  const nextShip = () => SKINS.filter(s => !save.owned.includes(s.id)).sort((a, b) => (SHIP_RANK[a.id] || 1) - (SHIP_RANK[b.id] || 1) || a.cost - b.cost)[0] || null;
+  /** What opens at rank lv (ships, trails, upgrade levels, titles). */
+  function unlocksAt(lv) {
+    const out = SKINS.filter(s => SHIP_RANK[s.id] === lv && lv > 1).map(s => s.name)
+      .concat(TRAILS.filter(t => TRAIL_RANK[t.id] === lv && lv > 1).map(t => t.name + " trail"));
+    const ul = UP_RANK.indexOf(lv); if (ul > 0) out.push(`upgrades to level ${ul + 1}`);
+    return out;
+  }
   function nextUnlockHTML() {
-    const n = SKINS.find(s => !save.owned.includes(s.id));
+    const n = nextShip();
     if (!n) return `<div class="next">Every ship unlocked.</div>`;
+    const need = SHIP_RANK[n.id] || 1;
+    if (save.pilot < need) {
+      const pctR = Math.min(100, save.pilot / need * 100);
+      return `<div class="panel"><div class="next"><b style="color:var(--ink)">${n.name}</b> opens at Pilot Lv ${need}. Reach Lv ${need}, then ◉ ${n.cost.toLocaleString()}.</div><div class="bar xp"><i style="width:${pctR}%"></i></div></div>`;
+    }
     const pct = Math.min(100, save.coins / n.cost * 100);
     const left = n.cost - save.coins;
-    return `<div class="panel"><div class="next">${left > 0 ? `<b style="color:var(--ink)">${n.name}</b> unlocks at ◉ ${n.cost}. ${left} to go.` : `You can unlock <b style="color:var(--gold)">${n.name}</b> now.`}</div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+    return `<div class="panel"><div class="next">${left > 0 ? `<b style="color:var(--ink)">${n.name}</b> unlocks at ◉ ${n.cost.toLocaleString()}. ${left.toLocaleString()} to go.` : `You can unlock <b style="color:var(--gold)">${n.name}</b> now.`}</div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
   }
 
   // ---------- levels UI ----------
@@ -3216,10 +3569,10 @@ button.lk { cursor: pointer; }
     checkMissions(false);
     const prev = save.levels[n] || 0, gained = Math.max(0, res.stars - prev);
     if (res.stars > prev) save.levels[n] = res.stars;
-    const starCoins = gained * (10 + 5 * L.w), runCoins = me.stars;
+    const pay = payRun(me), starCoins = gained * (10 + 5 * L.w), runCoins = pay.coins;
     save.coins += starCoins + runCoins; save.runs++;
     bumpStreak();
-    const xp = LV.runXP(me, gained), ups = LV.addXP(save, xp);
+    const xp = LV.runXP(me, gained) + runMissionXP, ups = LV.addXP(save, xp); runMissionXP = 0;
     let upCoins = 0; ups.forEach(lv => { upCoins += LV.levelUpCoins(lv); }); save.coins += upCoins;
     if (finished && res.met && L.type === "escort") save.rec.escorts = (save.rec.escorts || 0) + 1;
     if (L.type === "rescue") save.rec.pods = (save.rec.pods || 0) + me.pods;
@@ -3251,7 +3604,8 @@ button.lk { cursor: pointer; }
       <div class="panel"><div class="crit">${res.checks.map(c => `<div><span class="${c.ok ? "s" : "x"}">${c.ok ? "★" : "✕"}</span>${c.text}</div>`).join("")}</div></div>
       <div class="stats"><div><b>${me.score.toLocaleString()}</b><span>score</span></div><div><b>${me.stars}</b><span>stars</span></div><div><b>×${me.maxMult}</b><span>combo</span></div></div>
       <div class="earn">+${starCoins + runCoins + upCoins} ◉${gained ? ` · ${gained} new ★` : ""}</div>
-      ${ups.length ? `<div class="lvup">Rank up! Pilot Lv ${save.pilot} · ${LV.rankName(save.pilot)} · +${upCoins} ◉</div>` : ""}
+      ${fuelHTML(pay)}
+      ${ups.length ? rankUpHTML(ups, upCoins) : ""}
       ${worldNowOpen ? `<div class="lvup" style="color:var(--gold)">New world unlocked: ${LV.WORLDS[L.w + 1].name}</div>` : ""}
       ${trophyLineHTML()}
       ${rankHTML(xp)}
@@ -3671,8 +4025,8 @@ button.lk { cursor: pointer; }
     { k: "gfx", name: "Graphics", desc: "Low draws one background layer, fewer sparks and a lighter resolution. Smoother on older phones.", opts: [["high", "High"], ["low", "Low"]] },
     { k: "music", name: "Music", desc: "The soundtrack.", opts: [[true, "On"], [false, "Off"]] },
     { k: "sfx", name: "Sound FX", desc: "Stars, hits and alarms.", opts: [[true, "On"], [false, "Off"]] },
-    { k: "voice", name: "Read lines aloud (beta)", desc: "Your phone speaks the crew's radio lines, each in their own voice. Uses your phone's built-in speech.", opts: [[true, "On"], [false, "Off"]], needs: () => !!TTS }
-  ].filter(S => !S.needs || S.needs());
+    { k: "voice", name: "Read lines aloud (beta)", desc: "Your phone speaks the crew's radio lines, each in their own voice. Uses your phone's built-in speech.", opts: [[true, "On"], [false, "Off"]], voice: true }
+  ];
   const setGet = k => k === "music" ? !save.musicOff : k === "sfx" ? !save.muted : save.set[k];
   let settingsBack = null;
   function openSettings(back) {
@@ -3686,7 +4040,8 @@ button.lk { cursor: pointer; }
     o.innerHTML = `<div class="h-top"><h2>Settings</h2></div>
       ${SETTINGS.map(S => `<div class="srow"><h3>${S.name}</h3><p>${S.desc}</p>
         ${S.k === "gap" ? `<canvas class="gapdemo" id="gapdemo" width="600" height="148" aria-label="Preview of where the ship sits above your finger"></canvas>` : ""}
-        <div class="seg" role="radiogroup" aria-label="${S.name}">${S.opts.map(([v, l]) => `<button role="radio" aria-checked="${setGet(S.k) === v}" class="${setGet(S.k) === v ? "on" : ""}" data-sk="${S.k}" data-sv="${String(v)}">${l}</button>`).join("")}</div></div>`).join("")}
+        <div class="seg" role="radiogroup" aria-label="${S.name}">${S.opts.map(([v, l]) => `<button role="radio" aria-checked="${setGet(S.k) === v}" class="${setGet(S.k) === v ? "on" : ""}" data-sk="${S.k}" data-sv="${String(v)}"${S.voice && !TTS ? " disabled" : ""}>${l}</button>`).join("")}</div>
+        ${S.voice ? (TTS ? `<button class="btn alt vcheck" id="voicecheck"${save.set.voice ? "" : " hidden"}>📻 Radio check</button><p class="vhint" id="voicehint" role="status" aria-live="polite" hidden></p>` : `<p class="vhint">Spoken lines aren't supported in this browser.</p>`) : ""}</div>`).join("")}
       <p class="fine">Settings only change how the game looks, sounds and feels in your hand. Courses and scores stay the same for everyone.</p>
       <button class="btn" id="set-done">Done</button>`;
     o.querySelectorAll("[data-sk]").forEach(b => b.onclick = () => {
@@ -3696,12 +4051,31 @@ button.lk { cursor: pointer; }
       else { save.set[k] = v; persist(); sfx.tap(); }
       if (k === "haptics" && v) vibrate(40);
       if (k === "gfx") resize();
-      if (k === "voice") { if (v) ttsSay("vega", lineText("voice.check")); else ttsStop(); }
+      if (k === "voice" && !v) ttsStop();
       renderSettings();
+      if (k === "voice" && v) voiceCheck();
       const nb = o.querySelector(`[data-sk="${k}"][data-sv="${raw}"]`); if (nb) nb.focus({ preventScroll: true });
     });
     $("#set-done").onclick = () => { sfx.tap(); ttsStop(); o.hidden = true; (settingsBack || showStart)(); };
+    const vc = $("#voicecheck"); if (vc) vc.onclick = () => voiceCheck();
     drawGapDemo();
+  }
+  /* v48 (urgent fix 1): the radio check. Runs inside the tap (so phones allow it); if the voice hasn't started in 2 s, show help. */
+  let voiceCheckTimer = 0;
+  function voiceCheck() {
+    clearTimeout(voiceCheckTimer);
+    const hint = $("#voicehint"); if (hint) hint.hidden = true;
+    const u = ttsSay("vega", lineText("voice.check"), true);
+    if (!u) return;
+    let started = false;
+    u.onstart = () => { started = true; const h = $("#voicehint"); if (h) h.hidden = true; };
+    voiceCheckTimer = setTimeout(() => {
+      if (started) return;
+      const h = $("#voicehint"); if (!h) return;
+      h.textContent = IOS ? "No sound? Turn off silent mode (switch on the side), turn up the volume, and check Settings > Accessibility > Spoken Content > Voices has an English voice."
+        : "No sound? Turn up media volume. On iPhone, also switch off silent mode. On Android, make sure a text-to-speech engine (Google Speech Services) is installed.";
+      h.hidden = false;
+    }, 2000);
   }
   /* Little picture of a thumb and the ship above it, so the gap and thumb side are easy to judge. */
   function drawGapDemo() {
@@ -3727,6 +4101,7 @@ button.lk { cursor: pointer; }
   }
   function resize() {
     const r = stage.getBoundingClientRect(), dpr = Math.min(lowGfx() ? 1.5 : 3, window.devicePixelRatio || 1);
+    SHIP3D.setGL(!lowGfx());
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
   }
   addEventListener("resize", fit);
@@ -3942,16 +4317,17 @@ button.lk { cursor: pointer; }
       if (missionDone(m.key) || m.of(me) < m.goal) continue;
       save.missions[day] = save.missions[day] || {};
       save.missions[day][m.key] = true;
-      save.coins += m.reward; runMissions.add(m.key); persist(); paintChips();
+      save.coins += m.reward; runMissions.add(m.key); runMissionXP += LV.missionXP(DAILY.indexOf(m)); persist(); paintChips();
       if (live) { toast(`Mission done · +${m.reward} ◉`, true); sfx.mission(); }
     }
     /* v28 (audit #2): a fixed bonus for clearing all three of the day's missions */
     if (save.mAllDay !== day && DAILY.every(m => missionDone(m.key))) {
-      save.mAllDay = day; save.coins += ALL_BONUS; runMissions.add("all"); persist(); paintChips();
+      save.mAllDay = day; save.coins += ALL_BONUS; runMissions.add("all"); runMissionXP += LV.ALL_XP; persist(); paintChips();
       if (live) setTimeout(() => { toast(`All 3 missions · +${ALL_BONUS} ◉ bonus`, true); sfx.best(); }, 900);
     }
   }
   const ALL_BONUS = 50;
+  let runMissionXP = 0; /* v49: mission XP earned this run, added with the run's XP at the end so no rank-up pops mid-run */
   // ---------- trophies (app-side; reads runs, never changes the rules) ----------
   save.ach = save.ach && typeof save.ach === "object" ? save.ach : {};
   save.rec = Object.assign({ stars: 0, near: 0, secs: 0, score: 0, mult: 1, golds: 0, gates: 0, novas: 0, ghostWins: 0, bosses: 0, wells: 0, flares: 0, escorts: 0 }, isObj(save.rec) ? save.rec : {});
@@ -4134,13 +4510,18 @@ button.lk { cursor: pointer; }
     if (r) for (const m of DAILY) if (!missionDone(m.key)) opts.push({ f: Math.min(.99, m.of(r) / m.goal), text: `${m.text} · +${m.reward} ◉` });
     const need = LV.xpNeed(save.pilot);
     opts.push({ f: Math.min(.99, save.xp / need), text: `Pilot Lv ${save.pilot + 1}: ${(need - save.xp).toLocaleString()} XP to go` });
-    const n = SKINS.find(s => !save.owned.includes(s.id));
+    const n = nextShip();
     if (n) {
       const lv = SHIP_RANK[n.id] || 1, coinF = Math.min(1, save.coins / n.cost), rankF = Math.min(1, save.pilot / lv);
       opts.push({ f: Math.min(coinF, rankF), text: coinF >= 1 && rankF >= 1 ? `${n.name} is ready to unlock in the Hangar` : rankF < 1 ? `${n.name}: reach Pilot Lv ${lv}` : `${n.name}: ◉ ${(n.cost - save.coins).toLocaleString()} to go` });
     }
     const g = opts.sort((a, b) => b.f - a.f)[0];
     return `<div class="nextgoal"><div class="ng"><small>Next goal</small><span>${g.text}</span></div><div class="bar"><i style="width:${Math.round(g.f * 100)}%"></i></div></div>`;
+  }
+  /* v49: a rank-up also says what it opened */
+  function rankUpHTML(ups, coins) {
+    const opened = [].concat(...ups.map(unlocksAt)), newTitle = ups.some(lv => LV.rankName(lv) !== LV.rankName(lv - 1));
+    return `<div class="lvup">Rank up! Pilot Lv ${save.pilot} · ${LV.rankName(save.pilot)}${newTitle ? " (new title)" : ""} · +${coins} ◉</div>${opened.length ? `<div class="next">Now open: <b style="color:var(--ink)">${opened.join(", ")}</b></div>` : ""}`;
   }
   function backToOver() { state = "over"; $("#over").hidden = false; }
   /* ---------- THE ENDING (v46, mission plan 6; display only) ----------
@@ -4192,7 +4573,7 @@ button.lk { cursor: pointer; }
     state = "over";
     tutFinish(false); radioStop(); $("#toast").hidden = true;
     checkMissions(false);
-    const earned = me.stars;
+    const pay = payRun(me), earned = pay.coins;
     save.coins += earned; save.runs++;
     let newBest = false;
     if (mode === "daily") {
@@ -4200,7 +4581,7 @@ button.lk { cursor: pointer; }
       if (newBest) pbSave();
     }
     bumpStreak();
-    const xpRun = LV.runXP(me, 0), upsRun = LV.addXP(save, xpRun);
+    const xpRun = LV.runXP(me, 0) + runMissionXP, upsRun = LV.addXP(save, xpRun); runMissionXP = 0;
     let upCoinsRun = 0; upsRun.forEach(lv => { upCoinsRun += LV.levelUpCoins(lv); }); save.coins += upCoinsRun;
     if (upsRun.length) setTimeout(() => sfx.best(), 700); /* v36: the results screen already shows the rank-up line, so no toast over it */
     const diff = me.score - ghost.score, p = world.partner, secs = me.t / TPS;
@@ -4232,7 +4613,8 @@ button.lk { cursor: pointer; }
       ${debriefHTML(isChal ? (diff > 0 ? "chal.win" : "chal.lose") : newBest ? "best.1" : lit ? "boss.down" : LOSE_LINES[save.runs % LOSE_LINES.length])}
       <div class="stats"><div><b>${CR.fmtTime(secs)}</b><span>time</span></div><div><b>${me.stars}</b><span>stars</span></div><div><b>×${me.maxMult}</b><span>combo</span></div><div><b>${me.near}</b><span>close calls</span></div></div>
       <div class="earn">+${earned + missionBonus} ◉${missionBonus ? ` (${missionBonus} from missions)` : ""}</div>
-      ${upsRun.length ? `<div class="lvup">Rank up! Pilot Lv ${save.pilot} · ${LV.rankName(save.pilot)} · +${upCoinsRun} ◉</div>` : ""}
+      ${fuelHTML(pay)}
+      ${upsRun.length ? rankUpHTML(upsRun, upCoinsRun) : ""}
       ${trophyLineHTML()}
       ${rankHTML(xpRun)}
       ${nextGoalHTML(me)}
@@ -4458,6 +4840,8 @@ button.lk { cursor: pointer; }
     chalCard(c, err);
   }
   addEventListener("hashchange", openChallengeFromHash);
+  window.__MP_SHIP = () => SHIP3D.glInfo(); /* v51: read-only, for automated tests */
+  window.__MP_ROCKS = () => M3.info(); /* v52: read-only, for automated tests */
   window.__MP_CHAL = { encodeRun, decodeRun, chalRun, inputSeries, seriesInputs }; /* for automated tests */
   window.__MP_STATE = () => ({ state, mode, t: me ? me.t : 0, x: me ? me.x : 0, y: me ? me.y : 0, pods: me ? me.pods : 0, podLost: me ? me.podLost : 0, frags: me ? me.frags : 0, spotted: me ? me.spotted : 0, stars: me ? me.stars : 0, motes: me ? me.motes : 0, beaconLit: me ? me.beaconLit : null, lives: me ? me.lives : 0, alive: !!(me && me.alive), level: curLevel ? curLevel.n : 0, seed: curLevel ? curLevel.seed : "" }); /* v39: read-only, for automated tests */
 
@@ -4479,6 +4863,14 @@ button.lk { cursor: pointer; }
     SHIP3D.draw(ctx, x, y, { body, flame: flameC, model, alpha, t, scale, roll, thrust: flame, lights: alpha >= 1, boost: me && me.mult > 2 ? me.mult * 2 : 0 });
   }
   let previewTheme = null;
+  /* v51: pre-render the player's ship and the ghost ships in every banking step while the screen is calm (one per frame) */
+  function warmShips() {
+    const s = skin(), look = shipLook();
+    if (look.body[0] !== "#") return; /* Prismatic shifts color every frame; it renders as it goes */
+    if (!SHIP3D.warm(ctx, look.body, SHIP3D.model(s.id), Math.max(.8, s.hit / SHIP_R), .75)) return;
+    if (ghost && world && !world.crew && !SHIP3D.warm(ctx, ghost.col || "#4fe0cf", ghost.model, 1, .7)) return;
+    if (mode === "daily" && save.racePb && save.pb && save.pb.cfg) SHIP3D.warm(ctx, PB_COL, SHIP3D.model(save.pb.cfg.ship), 1, .7);
+  }
   /* Title card at the start of a run: label, theme name, and a light sweep. */
   function drawIntro(t) {
     const al = Math.max(0, Math.min(1, t / 14, (150 - t) / 35));
@@ -5211,6 +5603,7 @@ button.lk { cursor: pointer; }
     ctx.setTransform(sx, 0, 0, sy, 0, 0);
     const playing = state === "play" || state === "dying" || state === "over" || state === "paused" || state === "countdown";
     const t = me && playing ? me.t : 0;
+    if (state !== "play" && state !== "dying" && state !== "countdown") warmShips();
     const bgDark = me && world && world.blackout && (state === "play" || state === "dying" || state === "paused" || state === "countdown") && CR.blackoutAt(world, me.t) >= 1 && !(me.t - world.blackout.from < 40);
     if (bgDark) {
       /* v40: in full blackout the scenery is hidden anyway, so only paint it inside the lamp */
