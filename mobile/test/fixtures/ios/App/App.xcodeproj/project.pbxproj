@@ -1,0 +1,18 @@
+// !$*UTF8*$!
+/* Excerpt of the build settings Capacitor's iOS template uses (test fixture, not a real project). */
+		504EC3171FED79650016851F /* Debug */ = {
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.meteorpilot.game;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+		};
+		504EC3181FED79650016851F /* Release */ = {
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.meteorpilot.game;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+		};

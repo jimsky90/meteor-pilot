@@ -1,0 +1,155 @@
+# Meteor Pilot cloud builds for Google Play and the App Store (Codemagic).
+# Owner's guide: docs/MOBILE-BUILD.md. No secrets live in this file or in the repo:
+# signing keys, the Google Play key and the App Store Connect key are added in Codemagic's website.
+#
+# Workflows (start them from the Codemagic website with "Start new build"):
+#   android-aab              Android App Bundle (.aab) to download. Use it for the very first Google Play upload.
+#   android-closed-testing   Same build, then uploads it to Google Play closed testing automatically.
+#   ios-testflight           iOS build, uploaded to TestFlight.
+#
+# The android/ and ios/ projects are not in git. Each build creates them fresh with `npx cap add`, then
+# mobile/scripts/patch-native.mjs applies our settings (portrait, version numbers, signing).
+
+definitions:
+  # The app ID (Android package name and iOS bundle ID). It can NEVER change after the first upload.
+  # The one place to change it is mobile/capacitor.config.json "appId"; this line must match it
+  # (mobile/scripts/check-config.mjs fails the build if they differ or if the owner hasn't confirmed it).
+  app_id: &app_id com.meteorpilot.game
+
+  scripts:
+    - &check_config
+      name: Check the app ID
+      script: |
+        cd mobile
+        node scripts/check-config.mjs --require-confirmed
+    - &install
+      name: Install packages
+      script: |
+        cd mobile
+        if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+    - &build_web
+      name: Build the game files for the app (fonts bundled, no service worker, native bridge)
+      script: |
+        cd mobile
+        node scripts/build-www.mjs
+        python3 test_build.py --static-only
+    - &android_project
+      name: Create the Android project, icons and settings
+      script: |
+        cd mobile
+        npx cap add android
+        npm run assets -- --android
+        echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+    - &ios_project
+      name: Create the iOS project, icons and settings
+      script: |
+        cd mobile
+        npx cap add ios
+        npm run assets -- --ios
+        VERSION_CODE=$((BUILD_NUMBER + ${BUILD_NUMBER_OFFSET:-0})) node scripts/patch-native.mjs ios
+        npx cap sync ios
+
+workflows:
+  android-aab:
+    name: Android App Bundle (download)
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      android_signing:
+        - meteor_pilot_upload_key        # the keystore's "reference name" in Codemagic > Code signing identities
+      vars:
+        APP_ID: *app_id
+      node: 22
+      java: 21
+    scripts:
+      - *check_config
+      - *install
+      - *build_web
+      - *android_project
+      - name: Build the signed App Bundle
+        script: |
+          cd mobile
+          VERSION_CODE=$((BUILD_NUMBER + ${BUILD_NUMBER_OFFSET:-0})) node scripts/patch-native.mjs android
+          npx cap sync android
+          cd android && ./gradlew bundleRelease
+    artifacts:
+      - mobile/android/app/build/outputs/bundle/**/*.aab
+      - mobile/android/app/build/outputs/mapping/**/mapping.txt
+
+  android-closed-testing:
+    name: Android to Google Play closed testing
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      android_signing:
+        - meteor_pilot_upload_key
+      groups:
+        - google_play                    # holds GCLOUD_SERVICE_ACCOUNT_CREDENTIALS (the Google Play JSON key)
+      vars:
+        APP_ID: *app_id
+        GOOGLE_PLAY_TRACK: alpha         # "alpha" is Google Play's built-in Closed testing track
+      node: 22
+      java: 21
+    scripts:
+      - *check_config
+      - *install
+      - *build_web
+      - *android_project
+      - name: Build the signed App Bundle with the next version code
+        script: |
+          cd mobile
+          LATEST=$(google-play get-latest-build-number --package-name "$APP_ID" 2>/dev/null || echo 0)
+          case "$LATEST" in ''|*[!0-9]*) LATEST=0 ;; esac
+          NEXT=$((LATEST + 1)); OWN=$((BUILD_NUMBER + ${BUILD_NUMBER_OFFSET:-0}))
+          if [ "$OWN" -gt "$NEXT" ]; then NEXT=$OWN; fi
+          echo "Google Play has version code $LATEST; this build is $NEXT"
+          VERSION_CODE=$NEXT node scripts/patch-native.mjs android
+          npx cap sync android
+          cd android && ./gradlew bundleRelease
+    artifacts:
+      - mobile/android/app/build/outputs/bundle/**/*.aab
+      - mobile/android/app/build/outputs/mapping/**/mapping.txt
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: $GOOGLE_PLAY_TRACK
+        submit_as_draft: false
+
+  ios-testflight:
+    name: iOS to TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Meteor Pilot ASC key   # the API key's name in Codemagic > Team integrations > Developer Portal
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: *app_id
+      vars:
+        APP_ID: *app_id
+      node: 22
+      xcode: latest
+    scripts:
+      - *check_config
+      - *install
+      - *build_web
+      - *ios_project
+      - name: Use the App Store signing profile
+        script: |
+          cd mobile
+          xcode-project use-profiles --project "ios/App/App.xcodeproj"
+      - name: Build the .ipa
+        script: |
+          cd mobile
+          if [ -d ios/App/App.xcworkspace ]; then
+            xcode-project build-ipa --workspace "ios/App/App.xcworkspace" --scheme "App"
+          else
+            xcode-project build-ipa --project "ios/App/App.xcodeproj" --scheme "App"
+          fi
+    artifacts:
+      - mobile/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

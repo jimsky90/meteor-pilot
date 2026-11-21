@@ -1,0 +1,41 @@
+{
+  "appId": "com.meteorpilot.game",
+  "appName": "Meteor Pilot",
+  "webDir": "www",
+  "backgroundColor": "#070a1a",
+  "loggingBehavior": "none",
+  "server": {
+    "androidScheme": "https",
+    "hostname": "localhost"
+  },
+  "android": {
+    "backgroundColor": "#070a1a",
+    "allowMixedContent": false,
+    "captureInput": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "backgroundColor": "#070a1a",
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "allowsLinkPreview": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 500,
+      "launchAutoHide": true,
+      "launchFadeOutDuration": 200,
+      "backgroundColor": "#070a1a",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK",
+      "backgroundColor": "#00000000"
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK"
+    }
+  }
+}

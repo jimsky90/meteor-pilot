@@ -1,0 +1,23 @@
+# Installed packages and build output: recreated by `npm install` and `npm run build`
+node_modules/
+/www/
+# Native projects: generated fresh by `npx cap add` on every cloud build (see docs/MOBILE-BUILD.md, "Why android/ and ios/ aren't in git")
+/android/
+/ios/
+/build/
+*.aab
+*.apk
+*.ipa
+# Secrets never live in the repo: signing is set up in Codemagic's website
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision
+*.pem
+.env
+google-services.json
+GoogleService-Info.plist
+# Test output
+test/out/
+__pycache__/
