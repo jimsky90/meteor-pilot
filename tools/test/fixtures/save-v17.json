@@ -1,0 +1,29 @@
+{
+ "coins": 340,
+ "owned": [
+  "comet",
+  "ember"
+ ],
+ "skin": "ember",
+ "best": {
+  "8": 1820,
+  "9": 2410
+ },
+ "missions": {
+  "9": {
+   "0": true,
+   "2": true
+  }
+ },
+ "lastDay": 9,
+ "streak": 3,
+ "muted": false,
+ "runs": 14,
+ "trails": [
+  "none",
+  "sparks"
+ ],
+ "trail": "sparks",
+ "xp": 120,
+ "pilot": 2
+}

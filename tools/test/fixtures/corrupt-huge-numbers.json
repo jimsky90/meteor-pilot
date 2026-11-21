@@ -1,0 +1,26 @@
+{
+ "coins": 1e+308,
+ "xp": 1e+308,
+ "pilot": 1000000000.0,
+ "levels": {
+  "1": 99,
+  "999": 3,
+  "-1": 2
+ },
+ "best": {
+  "1": -5
+ },
+ "owned": [
+  "comet",
+  "nope"
+ ],
+ "skin": "nope",
+ "paint": "p-unknown",
+ "boom": "x-unknown",
+ "badge": "b-unknown",
+ "trail": "unknown",
+ "trails": [
+  "none",
+  "unknown"
+ ]
+}

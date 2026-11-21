@@ -1,0 +1,36 @@
+{
+  "_about": "Budgets the daily engineer must stay inside. Change a number only with the owner's OK and a note in docs/TECH-DIRECTION.md.",
+  "file": {
+    "max_bytes": 700000,
+    "warn_bytes": 600000,
+    "round_growth_warn_bytes": 6000,
+    "round_growth_fail_bytes": 20000
+  },
+  "frame": {
+    "_about": "Daily run at 0:40, 390x844 at 3x pixel ratio, Chromium with 4x CPU throttling. js = time inside the game's requestAnimationFrame callback (rules + issuing draw calls). interval = time between frames; it includes canvas rasterising, which headless Chromium does in software, so the High interval budget only catches disasters. v53 measured: High js 0.8/6.9 ms, interval p95 150 ms; Low js 0.4/3.8 ms, interval p95 33 ms.",
+    "cpu_throttle": 4,
+    "sample_ms": 2500,
+    "high": {
+      "js_p50_ms": 4,
+      "js_p95_ms": 16,
+      "interval_p95_ms": 250
+    },
+    "low": {
+      "js_p50_ms": 4,
+      "js_p95_ms": 16,
+      "interval_p95_ms": 50
+    }
+  },
+  "memory": {
+    "_about": "Growth across 5 daily runs, measured after garbage collection.",
+    "runs": 5,
+    "heap_growth_mb": 3,
+    "dom_nodes_growth": 250
+  },
+  "allowed_hosts": [
+    "fonts.googleapis.com",
+    "fonts.gstatic.com",
+    "jimsky90.github.io",
+    "www.w3.org"
+  ]
+}

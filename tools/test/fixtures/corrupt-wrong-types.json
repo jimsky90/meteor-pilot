@@ -1,0 +1,29 @@
+{
+ "coins": "lots",
+ "owned": "comet",
+ "skin": 7,
+ "best": [],
+ "missions": null,
+ "lastDay": "x",
+ "streak": -4,
+ "runs": null,
+ "trails": {},
+ "trail": null,
+ "levels": [
+  1,
+  2
+ ],
+ "up": "x",
+ "rec": 5,
+ "ach": [],
+ "cos": "p-crimson",
+ "set": "high",
+ "camp": [],
+ "pb": {
+  "in": "no"
+ },
+ "xp": -50,
+ "pilot": "x",
+ "chalBeat": "x",
+ "chalName": 42
+}
