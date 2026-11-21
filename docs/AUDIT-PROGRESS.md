@@ -25,3 +25,4 @@ Items from `docs/EXPERT-AUDIT-v25.md` that are done, by version. The update task
 - **v51** (2026-11-18): Mission 8 / 3D-a (WebGL ship).
 - **v52** (2026-11-19): Mission 8 / 3D-b (WebGL meteors).
 - **v53** (2026-11-20): Mission 8 / 3D-c (glowing particles and trails, star bloom, camera lean, boss-entrance camera shake).
+- **v54** (2026-11-21): Sturdier game: if something goes wrong mid-run, the game keeps going instead of freezing; If a run really can't go on, it ends kindly and your coins, stars and progress are saved; New in Settings: Copy error report. It only shows up after a problem, to help get it fixed.

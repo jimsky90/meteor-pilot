@@ -1186,6 +1186,7 @@ button.lk { cursor: pointer; }
   const day = Math.max(1, CR.dayNumber(new Date()));
   /* CHANGELOG: newest first. Each improvement round adds one entry; this is also the record of what's been done. */
   const CHANGELOG = [
+    { v: 54, date: "2026-11-21", notes: ["Sturdier game: if something goes wrong mid-run, the game keeps going instead of freezing", "If a run really can't go on, it ends kindly and your coins, stars and progress are saved", "New in Settings: Copy error report. It only shows up after a problem, to help get it fixed"] },
     { v: 53, date: "2026-11-20", notes: ["Sparks, explosions and engine trails now glow with real light instead of flat specks", "Stars shine with a soft bloom, and phones draw them faster than before", "The camera leans gently as you bank, so the sky swings with your turns", "Boss entrances shake and swoop the view as the husk arrives. Calm effects keeps it all still"] },
     { v: 52, date: "2026-11-19", notes: ["Meteors are now real 3D rocks drawn by your phone's graphics chip: lumpy shapes, deep craters and gritty surfaces", "They tumble more smoothly as they fall, and the underside glows hot from the entry fire", "Rocks are a bit brighter with a warm rim of light, so they stand out on every world", "Phones without 3D support keep the classic rocks"] },
     { v: 51, date: "2026-11-18", notes: ["Your ship got a real 3D upgrade: it's now drawn by your phone's graphics chip, with shiny metal, a glass canopy and a cool rim of light", "Light glides across the hull as you bank into turns, and the canopy catches the sky", "Every ship and paint gets the new look, in runs, briefings and the Hangar", "Low graphics, and phones without 3D support, keep the classic look"] },
@@ -1197,7 +1198,6 @@ button.lk { cursor: pointer; }
     { v: 45, date: "2026-11-13", notes: ["Chapter 3, \"Turning Tide\": levels 21 to 30 are now story missions with their own names, briefings and win scenes", "Nova flies with the crew now, and knows her way around the Prism Rings", "Kestrel vanishes into the Silence. Light the beacon in Mission 27 to guide her home", "Kestrel joins your crew as your wingman, then face Husk III together"] },
     { v: 44, date: "2026-11-12", notes: ["Chapter 2, \"The Dark Belt\": levels 11 to 20 are now story missions with their own names, crew briefings and win scenes", "A faint signal is coming from inside the Silence. Follow it all the way to Mission 20", "Break Husk II and meet Nova, a lost pilot with her own radio portrait", "Three new crew stories can turn up after a missed goal, kind as always"] },
     { v: 43, date: "2026-11-12", notes: ["New mission type: Light the Beacon! Golden light streams snake down the sky", "Every light mote counts as a star, so ride a stream to build your combo and Fever", "Catch 50 stars in one run and the beacon blazes up from your ship, +300", "Try it in Level 27, \"Beacon Fire\", and earn the new Lighthouse trophy"] },
-    { v: 42, date: "2026-11-12", notes: ["New mission type: Heist! Steal glowing core fragments right out from under the Silence", "Its red searchlight sweeps the sky. Get spotted and it costs a shield, but never your run", "Fragments drift down marked paths, +100 each. Grab 4 of the 6", "Try it in Level 23, \"Core Heist\", and earn the new Shadow Runner trophy"] }
   ];
   const DAILY = CR.missions(day); /* v33: the day's three missions (MISSIONS is now the story campaign table) */
   /* ---------- LEVELS + PILOT RANK (app-side; uses window.CR but never changes it) ---------- */
@@ -2363,6 +2363,16 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
     return CR.loadoutCfg(skin().id, save.up);
   }
   const persist = () => { try { localStorage.setItem("cometrun:v2", JSON.stringify(save)); } catch (e) {} };
+  /* the last 20 errors on this device, for bug reports. Its own key, never the save; a repeating error writes at most 20 times a session */
+  let diagN = 0;
+  const diagList = () => { try { const a = JSON.parse(localStorage.getItem("cometrun:diag") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+  function diag(e) {
+    try { console.warn("Meteor Pilot: error caught", e); } catch (_) {}
+    if (++diagN > 20) return;
+    try { const a = diagList(); a.push({ v: CHANGELOG[0].v, t: Date.now(), m: String(e && e.stack || e).slice(0, 400) }); localStorage.setItem("cometrun:diag", JSON.stringify(a.slice(-20))); } catch (_) {}
+  }
+  addEventListener("error", e => diag(e.error || e.message));
+  addEventListener("unhandledrejection", e => diag(e.reason));
   /* v50 (economy change 2): run coins = stars + 1 per 15 s flown. The first 5 runs each day pay double (Fresh Fuel),
      and runs pay up to 500 run coins a day. Missions, gift, XP and trophies are never limited. A run that would pay
      nothing (an instant quit) doesn't use up a Fresh Fuel run. */
@@ -4068,6 +4078,8 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
         ${S.k === "gap" ? `<canvas class="gapdemo" id="gapdemo" width="600" height="148" aria-label="Preview of where the ship sits above your finger"></canvas>` : ""}
         <div class="seg" role="radiogroup" aria-label="${S.name}">${S.opts.map(([v, l]) => `<button role="radio" aria-checked="${setGet(S.k) === v}" class="${setGet(S.k) === v ? "on" : ""}" data-sk="${S.k}" data-sv="${String(v)}"${S.voice && !TTS ? " disabled" : ""}>${l}</button>`).join("")}</div>
         ${S.voice ? (TTS ? `<button class="btn alt vcheck" id="voicecheck"${save.set.voice ? "" : " hidden"}>📻 Radio check</button><p class="vhint" id="voicehint" role="status" aria-live="polite" hidden></p>` : `<p class="vhint">Spoken lines aren't supported in this browser.</p>`) : ""}</div>`).join("")}
+      ${diagList().length ? `<div class="srow"><h3>Error report</h3><p>Something went wrong ${diagList().length === 1 ? "once" : diagList().length + " times"} on this device, and the game kept going. Copy this report to share it when you report a bug.</p>
+        <div class="btns" style="justify-content:flex-start"><button class="btn alt" id="diag-copy">Copy error report</button><button class="btn alt" id="diag-clear">Clear</button></div><div class="chalmsg" id="diag-msg" role="status" aria-live="polite" hidden></div></div>` : ""}
       <p class="fine">Settings only change how the game looks, sounds and feels in your hand. Courses and scores stay the same for everyone.</p>
       <button class="btn" id="set-done">Done</button>`;
     o.querySelectorAll("[data-sk]").forEach(b => b.onclick = () => {
@@ -4084,6 +4096,13 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
     });
     $("#set-done").onclick = () => { sfx.tap(); ttsStop(); o.hidden = true; (settingsBack || showStart)(); };
     const vc = $("#voicecheck"); if (vc) vc.onclick = () => voiceCheck();
+    const dc = $("#diag-copy"); if (dc) dc.onclick = () => {
+      sfx.tap();
+      const text = JSON.stringify({ game: "Meteor Pilot", v: CHANGELOG[0].v, ua: navigator.userAgent, errors: diagList() }), msg = $("#diag-msg");
+      const show = () => { msg.hidden = false; msg.innerHTML = `Copy this text:<input readonly value="${esc(text)}" aria-label="Error report">`; const f = msg.querySelector("input"); f.onfocus = () => f.select(); };
+      try { navigator.clipboard.writeText(text).then(() => { msg.hidden = false; msg.textContent = "Copied. Paste it into your bug report."; }, show); } catch (e) { show(); }
+    };
+    const dx = $("#diag-clear"); if (dx) dx.onclick = () => { sfx.tap(); try { localStorage.removeItem("cometrun:diag"); } catch (e) {} renderSettings(); };
     drawGapDemo();
   }
   /* v48 (urgent fix 1): the radio check. Runs inside the tap (so phones allow it); if the voice hasn't started in 2 s, show help. */
@@ -5853,7 +5872,20 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
   }
 
   // ---------- loop ----------
+  /* the next frame is booked first, so one bad frame can never freeze the game; 3 in a row end the run kindly and pay it out */
+  let frameErrs = 0;
   function frame(now) {
+    requestAnimationFrame(frame);
+    try { frameBody(now); frameErrs = 0; }
+    catch (e) {
+      diag(e);
+      if (++frameErrs === 3 && me && (state === "play" || state === "countdown" || state === "dying")) {
+        try { me.alive = false; state = "dying"; $("#pausebtn").hidden = true; gameOver(); } catch (_) { state = "menu"; try { showStart(); } catch (__) {} }
+        toast("Glitch! Your run was saved.");
+      }
+    }
+  }
+  function frameBody(now) {
     const dt = Math.min(100, now - last); last = now;
     if (state === "countdown" && now >= resumeAt) { state = "play"; acc = 0; }
     const frozen = hitStopMs > 0;
@@ -5902,7 +5934,6 @@ vec3 bw=fwidth(vB);vec3 e3=smoothstep(vec3(0.0),bw*1.4,vB);float edge=min(min(e3
     draw();
     if (shopTab === "booms" && !$("#shop").hidden) drawBoomPreview();
     if (previewTheme && !$("#levels").hidden) { const pv = $("#lv-prev"); if (pv) drawPreview(pv, previewTheme); }
-    requestAnimationFrame(frame);
   }
 
   /* v30 (QA 3): if the start screen still can't draw from this save, offer a reset instead of a blank screen */
