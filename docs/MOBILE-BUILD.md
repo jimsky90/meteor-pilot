@@ -25,13 +25,13 @@ This replaces the "Trusted Web Activity" route in `store/LAUNCH-PLAN.md` part A.
 
 The **app ID** is the app's internal name in both stores, for example `com.meteorpilot.game`. Players never see it, but it **can never be changed after the first upload**. A different ID means a brand-new app with no reviews and no installs.
 
-- The project currently uses **`com.meteorpilot.game`**.
+- **Confirmed by the owner on 2026-11-21: `io.github.jimsky90.meteorpilot`.** It's set in `mobile/capacitor.config.json` and `codemagic.yaml`, and marked confirmed.
 - `store/LAUNCH-PLAN.md` (Step 0) suggested **`io.github.jimsky90.meteorpilot`**. That one ties the app to your GitHub username.
 - Either is fine. A neutral name like `com.meteorpilot.game` is better if the game might ever move to its own website or company. Choose one.
 
 Tell Claude: *"The app ID is confirmed: com.meteorpilot.game"* (or the one you prefer). 🤖 Claude then sets it in `mobile/capacitor.config.json` and `codemagic.yaml` and marks it confirmed (`appIdConfirmed` in `mobile/package.json`). **Until then, every cloud build stops at its first step on purpose,** so nothing gets uploaded under an ID you didn't choose.
 
-Also decide: **iPhone only, or iPhone and iPad?** It is set to **iPhone only**, which means no iPad screenshots and no iPad review. You can add iPad in a later update. Changing it from iPad to iPhone-only later isn't allowed.
+Also decide: **iPhone only, or iPhone and iPad?** **Decided 2026-11-21: iPhone and iPad.** You'll need iPad screenshots (13-inch, 2064 × 2752) for the App Store listing, and the game's layout is being made to fill iPad screens (see MOBILE-GAME-CHANGES.md, M10).
 
 ---
 
@@ -134,7 +134,7 @@ Google requires the **first** upload to be done by hand. After that, Codemagic c
 
 1. [developer.apple.com/account](https://developer.apple.com/account) > **Certificates, Identifiers & Profiles** > **Identifiers** > **+** > **App IDs** > **App**.
    - Description: Meteor Pilot
-   - Bundle ID: **Explicit**, the app ID from Step 1 (for example `com.meteorpilot.game`)
+   - Bundle ID: **Explicit**, the app ID from Step 1 (`io.github.jimsky90.meteorpilot`)
    - No extra capabilities are needed yet.
    - Click **Register**.
 2. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) > **Apps** > **+** > **New App**.

@@ -116,7 +116,7 @@ try:
     ok = ok and "versionCode 42" in g and 'versionName "1.2.3"' in g and g.count("signingConfigs {") == 1 and g.count("signingConfig signingConfigs.release") == 1
     ok = ok and mf.count('android:screenOrientation="portrait"') == 1
     ok = ok and pd["UISupportedInterfaceOrientations"] == ["UIInterfaceOrientationPortrait"] and pd["ITSAppUsesNonExemptEncryption"] is False and pd["UIStatusBarHidden"] is True
-    ok = ok and "CURRENT_PROJECT_VERSION = 42;" in px and "MARKETING_VERSION = 1.2.3;" in px and ("TARGETED_DEVICE_FAMILY = 1;" in px) == bool(pkg["meteorPilot"].get("iPhoneOnly"))
+    ok = ok and "CURRENT_PROJECT_VERSION = 42;" in px and "MARKETING_VERSION = 1.2.3;" in px and (("TARGETED_DEVICE_FAMILY = 1;" in px) if pkg["meteorPilot"].get("iPhoneOnly") else ('TARGETED_DEVICE_FAMILY = "1,2";' in px))
     check("patch-native.mjs sets portrait, versions, signing and plist keys (template fixtures, twice)", ok, (r.stderr or "").strip()[:200])
 finally:
     shutil.rmtree(tmp, ignore_errors=True)

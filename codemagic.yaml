@@ -14,7 +14,7 @@ definitions:
   # The app ID (Android package name and iOS bundle ID). It can NEVER change after the first upload.
   # The one place to change it is mobile/capacitor.config.json "appId"; this line must match it
   # (mobile/scripts/check-config.mjs fails the build if they differ or if the owner hasn't confirmed it).
-  app_id: &app_id com.meteorpilot.game
+  app_id: &app_id io.github.jimsky90.meteorpilot
 
   scripts:
     - &check_config

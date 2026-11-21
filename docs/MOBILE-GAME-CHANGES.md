@@ -85,3 +85,11 @@ When `NATIVE` exists, hide the `.foot` line ("Keyboard: arrow keys or WASD, Spac
 - the save key `cometrun:v2`
 
 If you rename any of them, tell the Mobile Platform Engineer, or update `mobile/native.js` and run `python3 mobile/test_build.py`.
+
+## M10: iPad layout (owner decided 2026-11-21: the App Store build runs on iPhone and iPad)
+The stage is capped at 420 px wide, so on an iPad (768–1032 pt wide, portrait only) the game sits in a narrow column. Make it look native on iPad:
+- Scale the stage to fill the screen in portrait. Keep the 360×640 game coordinates and gameplay identical (window.CR unchanged); scale the canvas and overlays up with CSS/transform, or raise the max width with a matching device-pixel cap, whichever keeps TECH-DIRECTION's frame budgets.
+- Menus, radio window, beacon map, Shop, Hangar and Settings must look intentional at 768×1024, 820×1180 and 1024×1366, with no tiny text and no stretched art. Pick a sensible max content width for menus.
+- Fill the extra space around the stage with the world's background art, not flat bars.
+- Test it: add 820×1180 and 1024×1366 to the browser smoke test in tools/test/browser_test.py (no page errors, no sideways scroll), and screenshot both sizes against ART-DIRECTION.md's checklist.
+- Phones must look exactly as before.

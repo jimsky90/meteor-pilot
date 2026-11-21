@@ -91,8 +91,12 @@ if (which === "ios") {
   if (pkg.meteorPilot && pkg.meteorPilot.iPhoneOnly) {
     must(x, /TARGETED_DEVICE_FAMILY = [^;]+;/, "TARGETED_DEVICE_FAMILY");
     x = x.replace(/TARGETED_DEVICE_FAMILY = [^;]+;/g, "TARGETED_DEVICE_FAMILY = 1;");
+  } else {
+    // owner's decision (2026-11-21): iPhone and iPad
+    must(x, /TARGETED_DEVICE_FAMILY = [^;]+;/, "TARGETED_DEVICE_FAMILY");
+    x = x.replace(/TARGETED_DEVICE_FAMILY = [^;]+;/g, 'TARGETED_DEVICE_FAMILY = "1,2";');
   }
-  fs.writeFileSync(projPath, x); done.push(`build ${VERSION_CODE}, version ${VERSION_NAME}${pkg.meteorPilot.iPhoneOnly ? ", iPhone only" : ""}`);
+  fs.writeFileSync(projPath, x); done.push(`build ${VERSION_CODE}, version ${VERSION_NAME}${pkg.meteorPilot.iPhoneOnly ? ", iPhone only" : ", iPhone and iPad"}`);
 }
 
 console.log(`patch-native (${which}): ${done.join("; ")}`);

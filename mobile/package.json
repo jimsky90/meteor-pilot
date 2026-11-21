@@ -5,8 +5,8 @@
   "description": "Google Play and App Store builds of Meteor Pilot (Capacitor). The game itself is ../index.html.",
   "meteorPilot": {
     "webUrl": "https://jimsky90.github.io/meteor-pilot/",
-    "appIdConfirmed": false,
-    "iPhoneOnly": true,
+    "appIdConfirmed": true,
+    "iPhoneOnly": false,
     "backgroundColor": "#070a1a"
   },
   "scripts": {

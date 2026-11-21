@@ -1,5 +1,5 @@
 {
-  "appId": "com.meteorpilot.game",
+  "appId": "io.github.jimsky90.meteorpilot",
   "appName": "Meteor Pilot",
   "webDir": "www",
   "backgroundColor": "#070a1a",
